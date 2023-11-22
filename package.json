@@ -14,8 +14,12 @@
   "contributes": {
     "commands": [
       {
-        "command": "vsdelphi.helloWorld",
-        "title": "Hello World"
+        "command": "vsdelphi.test",
+        "title": "Test Delphi"
+      },
+      {
+        "command": "vsdelphi.build",
+        "title": "Build Delphi"
       }
     ]
   },
