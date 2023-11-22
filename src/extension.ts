@@ -1,25 +1,40 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
+import * as childProcess from 'child_process';
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
+// This method is called when anythin from the `contributes` section 
+// of the `package.json` is activated or when an event from the 
+// `activationEvents` section is triggered
 export function activate(context: vscode.ExtensionContext) {
+	console.log('Activating VSDelphi extension.');
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "vsdelphi" is now active!');
+	const testCmd = vscode.commands.registerCommand('vsdelphi.test', () => {
+		console.log('Test VSDelphi command.');
+		vscode.window.showInformationMessage('Test VSDelphi command');
+	});
+	context.subscriptions.push(testCmd);
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	let disposable = vscode.commands.registerCommand('vsdelphi.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from VSDelphi!');
+	const buildCmd = vscode.commands.registerCommand('vsdelphi.build', build);
+	context.subscriptions.push(buildCmd);
+}
+
+function build() {
+	const rsvarsPath = 'C:\\Program Files (x86)\\Embarcadero\\Studio\\22.0\\bin\\rsvars.bat';
+	const dprojPath = 'D:\\DelphiProjects\\DelphiHelloWorld\\HelloWorld.dproj';
+	const outputChannel = vscode.window.createOutputChannel('Delphi Build');
+	outputChannel.show();
+	const buildProcess = childProcess.spawn('cmd.exe', ['/c', rsvarsPath, '&&', 'MSBuild', dprojPath]);
+
+	buildProcess.stdout.on('data', (data) => {
+		outputChannel.appendLine(data.toString());
 	});
 
-	context.subscriptions.push(disposable);
+	buildProcess.stderr.on('data', (data) => {
+		outputChannel.appendLine(data.toString());
+	});
+
+	buildProcess.on('close', (code) =>{
+		outputChannel.appendLine(`Build process exited with code ${code}`);
+	});
 }
 
 // This method is called when your extension is deactivated
