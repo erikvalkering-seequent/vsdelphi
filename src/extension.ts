@@ -23,9 +23,17 @@ function test() {
 	vscode.window.showInformationMessage(msg);
 }
 
-function build() {
+async function build() {
 	const rsvarsPath = getConfigString('rsvarsPath');
-	const dprojPath = 'D:\\DelphiProjects\\DelphiHelloWorld\\HelloWorld.dproj';
+	if (!rsvarsPath) {
+		return;
+	}
+
+	const dprojPath = await getDprojFilePath();
+	if (!dprojPath) {
+		return;
+	}
+
 	const outputChannel = vscode.window.createOutputChannel('Delphi Build');
 	outputChannel.show();
 	const buildProcess = childProcess.spawn('cmd.exe', ['/c', rsvarsPath, '&&', 'MSBuild', dprojPath]);
@@ -41,6 +49,16 @@ function build() {
 	buildProcess.on('close', (code) =>{
 		outputChannel.appendLine(`Build process exited with code ${code}`);
 	});
+}
+
+async function getDprojFilePath(): Promise<string | undefined> {
+	const dprojFiles = await vscode.workspace.findFiles('**/*.dproj', '**/node_modules/**', 1);
+	if (dprojFiles.length > 0) {
+		return dprojFiles[0].fsPath;
+	}
+
+	vscode.window.showErrorMessage('No .dproj file found in the current workspace.');
+	return undefined;
 }
 
 function getConfigString(propertyName: string): string {
