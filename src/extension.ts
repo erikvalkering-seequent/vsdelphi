@@ -1,24 +1,30 @@
 import * as vscode from 'vscode';
 import * as childProcess from 'child_process';
 
+// The name of the extension as defined in package.json
+const EXTENSION_NAME = 'vsdelphi';
+
 // This method is called when anythin from the `contributes` section 
 // of the `package.json` is activated or when an event from the 
 // `activationEvents` section is triggered
 export function activate(context: vscode.ExtensionContext) {
-	console.log('Activating VSDelphi extension.');
+	console.log(`Activating ${EXTENSION_NAME} extension.`);
 
-	const testCmd = vscode.commands.registerCommand('vsdelphi.test', () => {
-		console.log('Test VSDelphi command.');
-		vscode.window.showInformationMessage('Test VSDelphi command');
-	});
+	const testCmd = vscode.commands.registerCommand(`${EXTENSION_NAME}.test`, test);
 	context.subscriptions.push(testCmd);
 
-	const buildCmd = vscode.commands.registerCommand('vsdelphi.build', build);
+	const buildCmd = vscode.commands.registerCommand(`${EXTENSION_NAME}.build`, build);
 	context.subscriptions.push(buildCmd);
 }
 
+function test() {
+	const msg = `test ${EXTENSION_NAME} command.`;
+	console.log(msg);
+	vscode.window.showInformationMessage(msg);
+}
+
 function build() {
-	const rsvarsPath = 'C:\\Program Files (x86)\\Embarcadero\\Studio\\22.0\\bin\\rsvars.bat';
+	const rsvarsPath = getConfigString('rsvarsPath');
 	const dprojPath = 'D:\\DelphiProjects\\DelphiHelloWorld\\HelloWorld.dproj';
 	const outputChannel = vscode.window.createOutputChannel('Delphi Build');
 	outputChannel.show();
@@ -35,6 +41,22 @@ function build() {
 	buildProcess.on('close', (code) =>{
 		outputChannel.appendLine(`Build process exited with code ${code}`);
 	});
+}
+
+function getConfigString(propertyName: string): string {
+	const config = vscode.workspace.getConfiguration(EXTENSION_NAME);
+	if (!config) {
+		vscode.window.showErrorMessage(`Unable to obtain ${EXTENSION_NAME} configuration.`);
+		return '';
+	}
+
+	const prop = config.get(propertyName) as string;
+	if (!prop) {
+		vscode.window.showErrorMessage(`Unable to obtain ${propertyName} from config. Make sure it is set. (Ctrl + ,)`);
+		return '';
+	}
+
+	return prop;
 }
 
 // This method is called when your extension is deactivated
