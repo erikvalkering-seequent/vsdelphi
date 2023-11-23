@@ -1,5 +1,8 @@
 import * as vscode from 'vscode';
 import * as childProcess from 'child_process';
+import * as fs from 'fs';
+import * as xml2js from 'xml2js';
+import * as path from 'path';
 
 // The name of the extension as defined in package.json
 const EXTENSION_NAME = 'vsdelphi';
@@ -10,20 +13,39 @@ const EXTENSION_NAME = 'vsdelphi';
 export function activate(context: vscode.ExtensionContext) {
 	console.log(`Activating ${EXTENSION_NAME} extension.`);
 
-	const testCmd = vscode.commands.registerCommand(`${EXTENSION_NAME}.test`, test);
-	context.subscriptions.push(testCmd);
-
-	const buildCmd = vscode.commands.registerCommand(`${EXTENSION_NAME}.build`, build);
-	context.subscriptions.push(buildCmd);
+	registerCmd(context, 'test', testDelphi);
+	registerCmd(context, 'build', buildDelphi);
+	registerCmd(context, 'run', runDelphi);
 }
 
-function test() {
+function registerCmd(context: vscode.ExtensionContext, cmdName: string, cmdCallback: (...args: any[]) => any) {
+	context.subscriptions.push(vscode.commands.registerCommand(`${EXTENSION_NAME}.${cmdName}`, cmdCallback));
+}
+
+function testDelphi() {
 	const msg = `test ${EXTENSION_NAME} command.`;
 	console.log(msg);
 	vscode.window.showInformationMessage(msg);
 }
 
-async function build() {
+async function buildDelphi() {
+	await runMSBuildProcess([], 'Build Delphi');
+}
+
+async function runDelphi() {
+	await runMSBuildProcess([], 'Run Delphi');
+	const dprojFilePath = await getDprojFilePath();
+	if (!dprojFilePath) {
+		return;
+	}
+
+	const exePath = await getExecutableFilePath(dprojFilePath);
+	fs.promises.access(exePath, fs.constants.X_OK)
+		.then(() => vscode.env.openExternal(vscode.Uri.file(exePath)))
+		.catch(() => vscode.window.showErrorMessage(`File does not exist: ${exePath}`));
+}
+
+async function runMSBuildProcess(extraArgs: readonly string[] = [], processName: string = 'MSBuild process'): Promise<void> {
 	const rsvarsPath = getConfigString('rsvarsPath');
 	if (!rsvarsPath) {
 		return;
@@ -34,10 +56,11 @@ async function build() {
 		return;
 	}
 
-	const outputChannel = vscode.window.createOutputChannel('Delphi Build');
+	const outputChannel = vscode.window.createOutputChannel(processName);
 	outputChannel.show();
-	const buildProcess = childProcess.spawn('cmd.exe', ['/c', rsvarsPath, '&&', 'MSBuild', dprojPath]);
 
+	const args = ['/c', rsvarsPath, '&&', 'MSBuild', dprojPath, ...extraArgs];
+	const buildProcess = childProcess.spawn('cmd.exe', args);
 	buildProcess.stdout.on('data', (data) => {
 		outputChannel.appendLine(data.toString());
 	});
@@ -46,9 +69,42 @@ async function build() {
 		outputChannel.appendLine(data.toString());
 	});
 
-	buildProcess.on('close', (code) =>{
-		outputChannel.appendLine(`Build process exited with code ${code}`);
+	return  new Promise((resolve, reject) => {
+		buildProcess.on('close', (code) =>{
+			outputChannel.appendLine(`Build process exited with code ${code}`);
+			if (code === 0) {
+				resolve();
+			}
+			else {
+				reject();
+			}
+		});
 	});
+}
+
+async function getExecutableFilePath(dprojFilePath: string): Promise<string> {
+	const dprojContent = await fs.promises.readFile(dprojFilePath, 'utf8');
+	const dprojXml = await xml2js.parseStringPromise(dprojContent);
+	const propGroups = dprojXml.Project.PropertyGroup;
+	for (const propGroup of propGroups) {
+		if (!(propGroup.DCC_ExeOutput && propGroup.SanitizedProjectName)) {
+			continue;
+		}
+
+		let relativeOutputDir: string = propGroup.DCC_ExeOutput[0];
+		if (relativeOutputDir.includes('$(Platform)') && propGroups[0].Platform[0]) {
+			relativeOutputDir = relativeOutputDir.replace('$(Platform)', propGroups[0].Platform[0]._);
+		}
+		if (relativeOutputDir.includes('$(Config)') && propGroups[0].Config[0]) {
+			relativeOutputDir = relativeOutputDir.replace('$(Config)', propGroups[0].Config[0]._);
+		}
+		const projectName = propGroup.SanitizedProjectName[0];
+		const exePath = path.join(path.dirname(dprojFilePath), relativeOutputDir, `${projectName}.exe`);
+		return exePath;
+	}
+
+	vscode.window.showErrorMessage(`Unable to obtain output directory/executable name from ${dprojFilePath}.`);
+	return '';
 }
 
 async function getDprojFilePath(): Promise<string | undefined> {
