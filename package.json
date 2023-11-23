@@ -39,7 +39,19 @@
                     "description": "Path to the Delphi build environment vars script."
                 }
             }
-        }
+        },
+        "keybindings": [
+            {
+                "key": "ctrl+f5",
+                "command": "vsdelphi.run",
+                "when": "editorTextFocus"
+            },
+            {
+                "key": "shift+f5",
+                "command": "vsdelphi.build",
+                "when": "editorTextFocus"
+            }
+        ]
     },
     "scripts": {
         "vscode:prepublish": "npm run compile",
