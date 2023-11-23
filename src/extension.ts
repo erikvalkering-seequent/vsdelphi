@@ -11,12 +11,17 @@ const EXTENSION_NAME = 'vsdelphi';
 // of the `package.json` is activated or when an event from the 
 // `activationEvents` section is triggered
 export function activate(context: vscode.ExtensionContext) {
-	console.log(`Activating ${EXTENSION_NAME} extension.`);
-
 	registerCmd(context, 'test', testDelphi);
 	registerCmd(context, 'build', buildDelphi);
 	registerCmd(context, 'run', runDelphi);
 	registerCmd(context, 'clean', cleanDelphi);
+
+	checkExtension('embarcaderotechnologies.delphilsp',
+		'DelphiLSP provides language support and is recommended.',
+		'Install DelphiLSP');
+	checkExtension('tuncb.pascal-uses-formatter',
+		'PascalUsesFormatter helps keep the `uses` section in alphabetical order.',
+		'Install PascalUsesFormatter');
 }
 
 function registerCmd(context: vscode.ExtensionContext, cmdName: string, cmdCallback: (...args: any[]) => any) {
@@ -136,6 +141,17 @@ function getConfigString(propertyName: string): string {
 	}
 
 	return prop;
+}
+
+function checkExtension(extensionID: string, description: string, button: string) {
+	if (!vscode.extensions.getExtension(extensionID)) {
+		vscode.window.showInformationMessage(description, button)
+			.then(selection => {
+				if (selection === button) {
+					vscode.commands.executeCommand('workbench.extensions.installExtension', extensionID);
+				}
+			});
+	}
 }
 
 // This method is called when your extension is deactivated
