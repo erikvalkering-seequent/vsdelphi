@@ -16,6 +16,7 @@ export function activate(context: vscode.ExtensionContext) {
 	registerCmd(context, 'test', testDelphi);
 	registerCmd(context, 'build', buildDelphi);
 	registerCmd(context, 'run', runDelphi);
+	registerCmd(context, 'clean', cleanDelphi);
 }
 
 function registerCmd(context: vscode.ExtensionContext, cmdName: string, cmdCallback: (...args: any[]) => any) {
@@ -43,6 +44,10 @@ async function runDelphi() {
 	fs.promises.access(exePath, fs.constants.X_OK)
 		.then(() => vscode.env.openExternal(vscode.Uri.file(exePath)))
 		.catch(() => vscode.window.showErrorMessage(`File does not exist: ${exePath}`));
+}
+
+async function cleanDelphi() {
+	await runMSBuildProcess(['/t:Clean'], 'Clean Delphi');
 }
 
 async function runMSBuildProcess(extraArgs: readonly string[] = [], processName: string = 'MSBuild process'): Promise<void> {

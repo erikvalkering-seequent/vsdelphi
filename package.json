@@ -24,6 +24,10 @@
             {
                 "command": "vsdelphi.run",
                 "title": "Run Delphi"
+            },
+            {
+                "command": "vsdelphi.clean",
+                "title": "Clean Delphi"
             }
         ],
         "configuration": {
