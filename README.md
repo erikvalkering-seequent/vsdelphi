@@ -15,7 +15,7 @@ For example if there is an image subfolder under your extension project workspac
 ## Requirements
 
 node.js and npm are required: `winget install OpenJS.NodeJS`
-When first cloning the repository run `node install` to install all dependencies for the extension.
+When first cloning the repository run `npm install` to install all dependencies for the extension.
 
 ## Extension Settings
 
