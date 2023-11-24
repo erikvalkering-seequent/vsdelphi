@@ -102,7 +102,7 @@ async function debugDelphi() {
 async function runDebugger(exePath: string) {
 	const debugConfigurations = vscode.workspace.getConfiguration('launch');
 	const configurations: any[] = debugConfigurations.get('configurations') || [];
-	const debugConfigName = 'Debug Deplhi';
+	const debugConfigName = 'Debug Delphi';
 
 	const newConfiguration = {
 		name: `${debugConfigName}`,
