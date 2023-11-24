@@ -6,6 +6,8 @@ import * as path from 'path';
 
 // The name of the extension as defined in package.json
 const EXTENSION_NAME = 'vsdelphi';
+const MAP_PATCHER_PATH = path.join(__dirname, '..', 'tools', 'MapPatcher', 'MapPatcher.exe');
+const MAP2PDB_PATH = path.join(__dirname, '..', 'tools', 'map2pdb', 'map2pdb.exe');
 
 // This method is called when anythin from the `contributes` section 
 // of the `package.json` is activated or when an event from the 
@@ -15,6 +17,7 @@ export function activate(context: vscode.ExtensionContext) {
 	registerCmd(context, 'build', buildDelphi);
 	registerCmd(context, 'run', runDelphi);
 	registerCmd(context, 'clean', cleanDelphi);
+	registerCmd(context, 'debug', debugDelphi);
 
 	checkExtension('embarcaderotechnologies.delphilsp',
 		'DelphiLSP provides language support and is recommended.',
@@ -26,6 +29,106 @@ export function activate(context: vscode.ExtensionContext) {
 
 function registerCmd(context: vscode.ExtensionContext, cmdName: string, cmdCallback: (...args: any[]) => any) {
 	context.subscriptions.push(vscode.commands.registerCommand(`${EXTENSION_NAME}.${cmdName}`, cmdCallback));
+}
+
+async function debugDelphi() {
+	if (!fs.existsSync(MAP_PATCHER_PATH)) {
+		vscode.window.showErrorMessage(`Unable to find MapPatcher.exe at ${MAP_PATCHER_PATH}.`);
+		return;
+	}
+	
+	if (!fs.existsSync(MAP2PDB_PATH)) {
+		vscode.window.showErrorMessage(`Unable to find map2pdb.exe at ${MAP2PDB_PATH}.`);
+		return;
+	}
+
+	await runMSBuildProcess([], 'Build Delphi');
+
+	const dprojFilePath = await getDprojFilePath();
+	if (!dprojFilePath) {
+		return;
+	}
+	const exePath = await getExecutableFilePath(dprojFilePath);
+	if (!exePath) {
+		return;
+	}
+
+	const mapFilePath = exePath.replace(path.extname(exePath), '.map');
+	const sourceDirs = [getConfigString('embarcaderoInstallDir'), path.dirname(dprojFilePath)];
+	if (!sourceDirs) {
+		return;
+	}
+	
+	const args = [mapFilePath, ...sourceDirs];
+	const mapPatcherProcess = childProcess.spawn(MAP_PATCHER_PATH, args);
+	console.log('patching map');
+	mapPatcherProcess.stdout.on('data', (data) => {
+		console.log(data.toString());
+	});
+
+	mapPatcherProcess.stderr.on('data', (data) => {
+		console.log(data.toString());
+	});
+
+	mapPatcherProcess.on('close', (code) => {
+		console.log(`MapPatcher process exited with code ${code}`);
+		if (code === 0) {
+			vscode.window.showInformationMessage('.map patched!');
+		}
+	});
+
+	// 3. Convert the .map file to .pdb using map2pdb.exe
+	const map2pdbProcess = childProcess.spawn(MAP2PDB_PATH, ['-bind', mapFilePath]);
+	console.log('converting map to pdb');
+	map2pdbProcess.stdout.on('data', (data) => {
+		console.log(data.toString());
+	});
+
+	map2pdbProcess.stderr.on('data', (data) => {
+		console.log(data.toString());
+	});
+
+	map2pdbProcess.on('close', (code) => {
+		console.log(`map2pdb process exited with code ${code}`);
+		if (code === 0) {
+			vscode.window.showInformationMessage('.map converted to .pdb!');
+		}
+	});
+
+	runDebugger(exePath);
+	vscode.window.showInformationMessage('Debugging Delphi is not yet implemented.');
+}
+
+async function runDebugger(exePath: string) {
+	const debugConfigurations = vscode.workspace.getConfiguration('launch');
+	const configurations: any[] = debugConfigurations.get('configurations') || [];
+	const debugConfigName = 'Debug Deplhi';
+
+	const newConfiguration = {
+		name: `${debugConfigName}`,
+		type: 'cppvsdbg',
+		request: 'launch',
+		program: `${exePath}`,
+		args: [],
+		stopAtEntry: false,
+		cwd: "${workspaceFolder}",
+		environment: [],
+		console: "externalTerminal"
+	};
+
+	configurations.push(newConfiguration);
+
+	await debugConfigurations.update('configurations', configurations);
+
+	const workspaceFolder = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders[0] : undefined;
+	if (workspaceFolder) {
+	  const success = await vscode.debug.startDebugging(workspaceFolder, debugConfigName);
+	  if (!success) {
+		vscode.window.showErrorMessage('Failed to start debugger');
+	  }
+	} else {
+	  vscode.window.showErrorMessage('No workspace folder open');
+	}
 }
 
 function testDelphi() {

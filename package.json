@@ -28,6 +28,10 @@
             {
                 "command": "vsdelphi.clean",
                 "title": "Clean Delphi"
+            },
+            {
+                "command": "vsdelphi.debug",
+                "title": "Debug Delphi"
             }
         ],
         "configuration": {
@@ -37,6 +41,11 @@
                     "type": "string",
                     "default": "C:\\Program Files (x86)\\Embarcadero\\Studio\\22.0\\bin\\rsvars.bat",
                     "description": "Path to the Delphi build environment vars script."
+                },
+                "vsdelphi.embarcaderoInstallDir": {
+                    "type": "string",
+                    "default": "C:\\Program Files (x86)\\Embarcadero\\Studio\\22.0",
+                    "description": "Path to the Embarcadero installation"
                 }
             }
         },
