@@ -9,8 +9,8 @@ const EXTENSION_NAME = 'vsdelphi';
 const MAP_PATCHER_PATH = path.join(__dirname, '..', 'tools', 'MapPatcher', 'MapPatcher.exe');
 const MAP2PDB_PATH = path.join(__dirname, '..', 'tools', 'map2pdb', 'map2pdb.exe');
 
-// This method is called when anythin from the `contributes` section 
-// of the `package.json` is activated or when an event from the 
+// This method is called when anythin from the `contributes` section
+// of the `package.json` is activated or when an event from the
 // `activationEvents` section is triggered
 export function activate(context: vscode.ExtensionContext) {
 	registerCmd(context, 'test', testDelphi);
@@ -36,7 +36,7 @@ async function debugDelphi() {
 		vscode.window.showErrorMessage(`Unable to find MapPatcher.exe at ${MAP_PATCHER_PATH}.`);
 		return;
 	}
-	
+
 	if (!fs.existsSync(MAP2PDB_PATH)) {
 		vscode.window.showErrorMessage(`Unable to find map2pdb.exe at ${MAP2PDB_PATH}.`);
 		return;
@@ -58,7 +58,7 @@ async function debugDelphi() {
 	if (!sourceDirs) {
 		return;
 	}
-	
+
 	const args = [mapFilePath, ...sourceDirs];
 	var mapPatchProcess = childProcess.spawnSync(MAP_PATCHER_PATH, args);
 	if (mapPatchProcess.error) {
@@ -194,8 +194,9 @@ async function getExecutableFilePath(dprojFilePath: string): Promise<string> {
 			relativeOutputDir = relativeOutputDir.replace('$(Config)', propGroups[0].Config[0]._);
 		}
 		const projectName = propGroup.SanitizedProjectName[0];
-		const exePath = path.join(path.dirname(dprojFilePath), relativeOutputDir, `${projectName}.exe`);
-		return exePath;
+		const exePath = path.join(relativeOutputDir, `${projectName}.exe`);
+		return path.isAbsolute(exePath) ? exePath
+										: path.join(path.dirname(dprojFilePath), exePath);
 	}
 
 	vscode.window.showErrorMessage(`Unable to obtain output directory/executable name from ${dprojFilePath}.`);
