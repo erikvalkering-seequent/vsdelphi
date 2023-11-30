@@ -55,7 +55,12 @@ async function debugDelphi() {
 	}
 
 	const mapFilePath = exePath.replace(path.extname(exePath), '.map');
-	const sourceDirs = [getConfigString('embarcaderoInstallDir'), path.dirname(dprojFilePath)];
+	const dprojFileDir = path.dirname(dprojFilePath);
+	const sourceDirs = [
+		getConfigString('embarcaderoInstallDir'),
+		dprojFileDir,
+		path.join(dprojFileDir, '../plxlib'),
+	];
 	if (!sourceDirs) {
 		return;
 	}
