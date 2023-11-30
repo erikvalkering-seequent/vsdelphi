@@ -7,7 +7,6 @@ import { globSync } from 'glob';
 
 // The name of the extension as defined in package.json
 const EXTENSION_NAME = 'vsdelphi';
-const MAP_PATCHER_PATH = path.join(__dirname, '..', 'tools', 'MapPatcher', 'MapPatcher.exe');
 const MAP2PDB_PATH = path.join(__dirname, '..', 'tools', 'map2pdb', 'map2pdb.exe');
 
 // This method is called when anythin from the `contributes` section
@@ -33,11 +32,6 @@ function registerCmd(context: vscode.ExtensionContext, cmdName: string, cmdCallb
 }
 
 async function debugDelphi() {
-	if (!fs.existsSync(MAP_PATCHER_PATH)) {
-		vscode.window.showErrorMessage(`Unable to find MapPatcher.exe at ${MAP_PATCHER_PATH}.`);
-		return;
-	}
-
 	if (!fs.existsSync(MAP2PDB_PATH)) {
 		vscode.window.showErrorMessage(`Unable to find map2pdb.exe at ${MAP2PDB_PATH}.`);
 		return;
