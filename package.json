@@ -79,11 +79,11 @@
         "@typescript-eslint/parser": "^6.9.0",
         "@vscode/test-electron": "^2.3.6",
         "eslint": "^8.52.0",
-        "glob": "^10.3.10",
         "mocha": "^10.2.0",
         "typescript": "^5.2.2"
     },
     "dependencies": {
+        "glob": "^10.3.10",
         "xml2js": "^0.6.2"
     }
 }
