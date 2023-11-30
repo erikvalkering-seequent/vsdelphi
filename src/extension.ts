@@ -3,6 +3,7 @@ import * as childProcess from 'child_process';
 import * as fs from 'fs';
 import * as xml2js from 'xml2js';
 import * as path from 'path';
+import { globSync } from 'glob';
 
 // The name of the extension as defined in package.json
 const EXTENSION_NAME = 'vsdelphi';
@@ -71,6 +72,42 @@ async function debugDelphi() {
 	}
 
 	await runDebugger(exePath);
+}
+
+function mapPatcher(mapFileName: string, sourceDirs: string[]) {
+	if (path.extname(mapFileName) !== '.map') {
+		vscode.window.showErrorMessage(`Invalid map file: ${mapFileName}`);
+		return false;
+	}
+
+	if (!fs.existsSync(mapFileName)) {
+		vscode.window.showErrorMessage(`Map file not found: ${mapFileName}`);
+		return false;
+	}
+
+	if (!sourceDirs) {
+		vscode.window.showErrorMessage('No source file paths specified');
+		return false;
+	}
+
+	fs.copyFileSync(mapFileName, `${mapFileName}.bak`);
+
+	const contents = fs.readFileSync(mapFileName, 'utf8');
+	const patched = contents.replace(/(Line numbers for.*\()(.*)(\).*)/gim, (substring, ...args) => args[0] + findFullPath(args[1], sourceDirs) + args[2]);
+	fs.writeFileSync(mapFileName, patched);
+
+	return true;
+}
+
+function findFullPath(filename: string, sourceDirs: string[]) {
+	if (path.isAbsolute(filename))
+		return filename;
+
+	const fullPath = sourceDirs
+		.flatMap(dir => globSync(dir + '/**/' + filename))
+		.concat([filename]);
+
+	return fullPath[0]
 }
 
 async function runDebugger(exePath: string) {
