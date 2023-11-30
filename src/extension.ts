@@ -60,10 +60,8 @@ async function debugDelphi() {
 		return;
 	}
 
-	const args = [mapFilePath, ...sourceDirs];
-	var mapPatchProcess = childProcess.spawnSync(MAP_PATCHER_PATH, args);
-	if (mapPatchProcess.error) {
-		vscode.window.showErrorMessage(mapPatchProcess.error.message);
+	if (!mapPatcher(mapFilePath, sourceDirs)) {
+		return;
 	}
 
 	const convertProcess = childProcess.spawnSync(MAP2PDB_PATH, ['-bind', mapFilePath]);
