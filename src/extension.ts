@@ -44,7 +44,8 @@ async function debugDelphi() {
 		return;
 	}
 
-	await runMSBuildProcess([], createOutputChannel('Debug Delphi'));
+	const outputChannel = createOutputChannel('Debug Delphi');
+	await runMSBuildProcess([], outputChannel);
 
 	const dprojFilePath = await getDprojFilePath();
 	if (!dprojFilePath) {
@@ -66,7 +67,7 @@ async function debugDelphi() {
 		return;
 	}
 
-	if (!mapPatcher(mapFilePath, sourceDirs)) {
+	if (!mapPatcher(mapFilePath, sourceDirs, outputChannel)) {
 		return;
 	}
 
@@ -78,7 +79,7 @@ async function debugDelphi() {
 	await runDebugger(exePath);
 }
 
-function mapPatcher(mapFileName: string, sourceDirs: string[]) {
+function mapPatcher(mapFileName: string, sourceDirs: string[], outputChannel: vscode.OutputChannel) {
 	if (path.extname(mapFileName) !== '.map') {
 		vscode.window.showErrorMessage(`Invalid map file: ${mapFileName}`);
 		return false;
@@ -96,8 +97,11 @@ function mapPatcher(mapFileName: string, sourceDirs: string[]) {
 
 	fs.copyFileSync(mapFileName, `${mapFileName}.bak`);
 
+	outputChannel.appendLine(`Reading map file...`)
 	const contents = fs.readFileSync(mapFileName, 'utf8');
+	outputChannel.appendLine(`Patching map file...`)
 	const patched = contents.replace(/(Line numbers for.*\()(.*)(\).*)/gim, (substring, ...args) => args[0] + findFullPath(args[1], sourceDirs) + args[2]);
+	outputChannel.appendLine(`Writing map file...`)
 	fs.writeFileSync(mapFileName, patched);
 
 	return true;
