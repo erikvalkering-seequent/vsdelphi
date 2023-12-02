@@ -31,13 +31,20 @@ function registerCmd(context: vscode.ExtensionContext, cmdName: string, cmdCallb
 	context.subscriptions.push(vscode.commands.registerCommand(`${EXTENSION_NAME}.${cmdName}`, cmdCallback));
 }
 
+function createOutputChannel(name: string) {
+	const outputChannel = vscode.window.createOutputChannel(name);
+	outputChannel.show();
+
+	return outputChannel;
+}
+
 async function debugDelphi() {
 	if (!fs.existsSync(MAP2PDB_PATH)) {
 		vscode.window.showErrorMessage(`Unable to find map2pdb.exe at ${MAP2PDB_PATH}.`);
 		return;
 	}
 
-	await runMSBuildProcess([], 'Build Delphi');
+	await runMSBuildProcess([], createOutputChannel('Build Delphi'));
 
 	const dprojFilePath = await getDprojFilePath();
 	if (!dprojFilePath) {
@@ -154,11 +161,11 @@ function testDelphi() {
 }
 
 async function buildDelphi() {
-	await runMSBuildProcess([], 'Build Delphi');
+	await runMSBuildProcess([], createOutputChannel('Build Delphi'));
 }
 
 async function runDelphi() {
-	await runMSBuildProcess([], 'Run Delphi');
+	await runMSBuildProcess([], createOutputChannel('Run Delphi'));
 	const dprojFilePath = await getDprojFilePath();
 	if (!dprojFilePath) {
 		return;
@@ -171,10 +178,10 @@ async function runDelphi() {
 }
 
 async function cleanDelphi() {
-	await runMSBuildProcess(['/t:Clean'], 'Clean Delphi');
+	await runMSBuildProcess(['/t:Clean'], createOutputChannel('Clean Delphi'));
 }
 
-async function runMSBuildProcess(extraArgs: readonly string[] = [], processName: string = 'MSBuild process'): Promise<void> {
+async function runMSBuildProcess(extraArgs: readonly string[] = [], outputChannel: vscode.OutputChannel): Promise<void> {
 	const rsvarsPath = getConfigString('rsvarsPath');
 	if (!rsvarsPath) {
 		return;
@@ -184,9 +191,6 @@ async function runMSBuildProcess(extraArgs: readonly string[] = [], processName:
 	if (!dprojPath) {
 		return;
 	}
-
-	const outputChannel = vscode.window.createOutputChannel(processName);
-	outputChannel.show();
 
 	const args = ['/c', rsvarsPath, '&&', 'MSBuild', dprojPath, ...extraArgs];
 	const buildProcess = childProcess.spawn('cmd.exe', args);
