@@ -44,7 +44,7 @@ async function debugDelphi() {
 		return;
 	}
 
-	await runMSBuildProcess([], createOutputChannel('Build Delphi'));
+	await runMSBuildProcess([], createOutputChannel('Debug Delphi'));
 
 	const dprojFilePath = await getDprojFilePath();
 	if (!dprojFilePath) {
