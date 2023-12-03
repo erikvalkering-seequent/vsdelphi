@@ -71,7 +71,9 @@ async function debugDelphi() {
 		return;
 	}
 
+	const dprFilePath = changeExt(dprojFilePath, '.dpr');
 	const mappings = {
+		[path.basename(dprFilePath)]: dprFilePath,
 	}
 
 	if (!mapPatcher(mapFilePath, mappings, outputChannel)) {
