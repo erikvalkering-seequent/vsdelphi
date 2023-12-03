@@ -74,8 +74,20 @@ async function debugDelphi() {
 	}
 
 	const dprFilePath = changeExt(dprojFilePath, '.dpr');
+
+	const unitsUsedInDpr = fs.readFileSync(dprFilePath, 'utf8')
+							 .match(/(?<=in \')[^\']+(?=\')/gm)
+							 ?.reduce(
+								(mappings: UnitMappings, unit: string) => (
+									{
+										...mappings,
+										[path.basename(unit)]: path.join(dprojFileDir, unit),
+									}
+								), {});
+
 	const mappings = {
 		[path.basename(dprFilePath)]: dprFilePath,
+		...unitsUsedInDpr,
 	}
 
 	if (!mapPatcher(mapFilePath, mappings, outputChannel)) {
