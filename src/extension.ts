@@ -42,6 +42,8 @@ function changeExt(p: string, ext: string) {
 	return path.format({ ...path.parse(p), base: '', ext });
 }
 
+type UnitMappings = {[key: string]: string}
+
 async function debugDelphi() {
 	if (!fs.existsSync(MAP2PDB_PATH)) {
 		vscode.window.showErrorMessage(`Unable to find map2pdb.exe at ${MAP2PDB_PATH}.`);
@@ -88,7 +90,7 @@ async function debugDelphi() {
 	await runDebugger(exePath);
 }
 
-function mapPatcher(mapFileName: string, mappings: {[key: string]: string}, outputChannel: vscode.OutputChannel) {
+function mapPatcher(mapFileName: string, mappings: UnitMappings, outputChannel: vscode.OutputChannel) {
 	if (path.extname(mapFileName) !== '.map') {
 		vscode.window.showErrorMessage(`Invalid map file: ${mapFileName}`);
 		return false;
