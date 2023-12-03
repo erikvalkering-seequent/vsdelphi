@@ -67,7 +67,10 @@ async function debugDelphi() {
 		return;
 	}
 
-	if (!mapPatcher(mapFilePath, sourceDirs, outputChannel)) {
+	const mappings = {
+	}
+
+	if (!mapPatcher(mapFilePath, mappings, outputChannel)) {
 		return;
 	}
 
@@ -79,7 +82,7 @@ async function debugDelphi() {
 	await runDebugger(exePath);
 }
 
-function mapPatcher(mapFileName: string, sourceDirs: string[], outputChannel: vscode.OutputChannel) {
+function mapPatcher(mapFileName: string, mappings: {[key: string]: string}, outputChannel: vscode.OutputChannel) {
 	if (path.extname(mapFileName) !== '.map') {
 		vscode.window.showErrorMessage(`Invalid map file: ${mapFileName}`);
 		return false;
@@ -90,8 +93,8 @@ function mapPatcher(mapFileName: string, sourceDirs: string[], outputChannel: vs
 		return false;
 	}
 
-	if (!sourceDirs) {
-		vscode.window.showErrorMessage('No source file paths specified');
+	if (Object.keys(mappings).length === 0) {
+		vscode.window.showErrorMessage('No source file mappings specified');
 		return false;
 	}
 
@@ -100,7 +103,7 @@ function mapPatcher(mapFileName: string, sourceDirs: string[], outputChannel: vs
 	outputChannel.appendLine(`Reading map file...`)
 	const contents = fs.readFileSync(mapFileName, 'utf8');
 	outputChannel.appendLine(`Patching map file...`)
-	const patched = contents.replace(/(Line numbers for.*\()(.*)(\).*)/gim, (substring, ...args) => args[0] + findFullPath(args[1], sourceDirs) + args[2]);
+	const patched = contents.replace(/(Line numbers for.*\()(.*)(\).*)/gm, (substring, ...args: string[]) => args[0] + (mappings[args[1]] || args[1]) + args[2]);
 	outputChannel.appendLine(`Writing map file...`)
 	fs.writeFileSync(mapFileName, patched);
 
