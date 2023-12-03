@@ -103,7 +103,7 @@ function mapPatcher(mapFileName: string, mappings: {[key: string]: string}, outp
 	outputChannel.appendLine(`Reading map file...`)
 	const contents = fs.readFileSync(mapFileName, 'utf8');
 	outputChannel.appendLine(`Patching map file...`)
-	const patched = contents.replace(/(?<=Line numbers for.*\().*(?=\).*)/gm, (filename: string) => mappings[filename] || filename);
+	const patched = contents.replace(/(?<=Line numbers for.*\().*(?=\).*)/gm, (filename: string) => mappings[filename] ?? filename);
 	outputChannel.appendLine(`Writing map file...`)
 	fs.writeFileSync(mapFileName, patched);
 
