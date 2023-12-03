@@ -38,6 +38,10 @@ function createOutputChannel(name: string) {
 	return outputChannel;
 }
 
+function changeExt(p: string, ext: string) {
+	return path.format({ ...path.parse(p), base: '', ext });
+}
+
 async function debugDelphi() {
 	if (!fs.existsSync(MAP2PDB_PATH)) {
 		vscode.window.showErrorMessage(`Unable to find map2pdb.exe at ${MAP2PDB_PATH}.`);
@@ -56,7 +60,7 @@ async function debugDelphi() {
 		return;
 	}
 
-	const mapFilePath = exePath.replace(path.extname(exePath), '.map');
+	const mapFilePath = changeExt(exePath, '.map');
 	const dprojFileDir = path.dirname(dprojFilePath);
 	const sourceDirs = [
 		getConfigString('embarcaderoInstallDir'),
