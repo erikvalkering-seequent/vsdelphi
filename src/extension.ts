@@ -3,7 +3,7 @@ import * as childProcess from 'child_process';
 import * as fs from 'fs';
 import * as xml2js from 'xml2js';
 import * as path from 'path';
-import { globSync } from 'glob';
+import { glob } from 'glob';
 
 // The name of the extension as defined in package.json
 const EXTENSION_NAME = 'vsdelphi';
@@ -65,10 +65,12 @@ async function debugDelphi() {
 	const dprFilePath = changeExt(dprojFilePath, '.dpr');
 
 	const dprMappings = await parseDprMappings(dprFilePath);
+	const unitSearchPathMappings = await parseUnitSearchPaths(dprojFilePath);
 
 	const mappings = {
 		[path.basename(dprFilePath)]: dprFilePath,
 		...dprMappings,
+		...unitSearchPathMappings,
 	}
 
 	const mapFilePath = changeExt(exePath, '.map');
@@ -95,6 +97,32 @@ async function parseDprMappings(dprFilePath: string) {
 								[path.basename(unit)]: path.join(dprFileDir, unit),
 							}
 						), {});
+}
+
+async function parseUnitSearchPaths(dprojFilePath: string) {
+	const searchPaths = (await fs.promises.readFile(dprojFilePath, 'utf8'))
+		?.match(/(?<=<DCC_UnitSearchPath>).*(?=<\/DCC_UnitSearchPath>)/)
+		?.flatMap(paths => paths.split(';'))
+		?.reduce((paths, path) => ({ ...paths, [path]: undefined }), {});
+
+	if (searchPaths === undefined) {
+		return {}
+	}
+
+	const dprojFileDir = path.dirname(dprojFilePath);
+	const resolveSearchPath = (searchPath: string) =>
+		path.join(dprojFileDir, searchPath)
+			.replace(/.*\$\(BDS\)/, getConfigString('embarcaderoInstallDir'))
+			.replaceAll('\\', '/');
+
+	const filenames = Object
+		.keys(searchPaths)
+		.filter(searchPath => searchPath !== '$(DCC_UnitSearchPath)')
+		.map(async searchPath => await glob(resolveSearchPath(searchPath) + '/**/*.pas'));
+
+	return (await Promise.all(filenames))
+		.flat()
+		.reduce((mappings, filename) => ({ ...mappings, [path.basename(filename)]: filename }), {});
 }
 
 async function mapPatcher(mapFileName: string, mappings: UnitMappings, outputChannel: vscode.OutputChannel) {
