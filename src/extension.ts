@@ -62,17 +62,6 @@ async function debugDelphi() {
 		return;
 	}
 
-	const mapFilePath = changeExt(exePath, '.map');
-	const dprojFileDir = path.dirname(dprojFilePath);
-	const sourceDirs = [
-		getConfigString('embarcaderoInstallDir'),
-		dprojFileDir,
-		path.join(dprojFileDir, '../plxlib'),
-	];
-	if (!sourceDirs) {
-		return;
-	}
-
 	const dprFilePath = changeExt(dprojFilePath, '.dpr');
 
 	const dprMappings = await parseDprMappings(dprFilePath);
@@ -82,6 +71,7 @@ async function debugDelphi() {
 		...dprMappings,
 	}
 
+	const mapFilePath = changeExt(exePath, '.map');
 	if (!await mapPatcher(mapFilePath, mappings, outputChannel)) {
 		return;
 	}
@@ -133,17 +123,6 @@ async function mapPatcher(mapFileName: string, mappings: UnitMappings, outputCha
 	await fs.promises.writeFile(mapFileName, patched);
 
 	return true;
-}
-
-function findFullPath(filename: string, sourceDirs: string[]) {
-	if (path.isAbsolute(filename))
-		return filename;
-
-	const fullPath = sourceDirs
-		.flatMap(dir => globSync(dir + '/**/' + filename))
-		.concat([filename]);
-
-	return fullPath[0]
 }
 
 async function runDebugger(exePath: string) {
