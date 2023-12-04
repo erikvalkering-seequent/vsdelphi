@@ -75,7 +75,7 @@ async function debugDelphi() {
 
 	const dprFilePath = changeExt(dprojFilePath, '.dpr');
 
-	const dprMappings = parseDprMappings(dprFilePath, dprojFileDir);
+	const dprMappings = parseDprMappings(dprFilePath);
 
 	const mappings = {
 		[path.basename(dprFilePath)]: dprFilePath,
@@ -94,14 +94,15 @@ async function debugDelphi() {
 	await runDebugger(exePath);
 }
 
-function parseDprMappings(dprFilePath: string, dprojFileDir: string) {
+function parseDprMappings(dprFilePath: string) {
+	const dprFileDir = path.dirname(dprFilePath);
 	return fs.readFileSync(dprFilePath, 'utf8')
 		.match(/(?<=in \')[^\']+(?=\')/gm)
 		?.reduce(
 			(mappings: UnitMappings, unit: string) => (
 				{
 					...mappings,
-					[path.basename(unit)]: path.join(dprojFileDir, unit),
+					[path.basename(unit)]: path.join(dprFileDir, unit),
 				}
 			), {});
 }
