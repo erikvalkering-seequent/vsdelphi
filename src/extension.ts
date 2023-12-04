@@ -88,15 +88,15 @@ async function debugDelphi() {
 
 async function parseDprMappings(dprFilePath: string) {
 	const dprFileDir = path.dirname(dprFilePath);
-	const dprContents = await fs.promises.readFile(dprFilePath, 'utf8')
-	return dprContents.match(/(?<=in \')[^\']+(?=\')/gm)
-					 ?.reduce(
-						(mappings: UnitMappings, unit: string) => (
-							{
-								...mappings,
-								[path.basename(unit)]: path.join(dprFileDir, unit),
-							}
-						), {});
+	return (await fs.promises.readFile(dprFilePath, 'utf8'))
+		?.match(/(?<=in \')[^\']+(?=\')/gm)
+		?.reduce(
+		(mappings, unit) => (
+			{
+				...mappings,
+				[path.basename(unit)]: path.join(dprFileDir, unit),
+			}
+		), {});
 }
 
 async function parseUnitSearchPaths(dprojFilePath: string) {
