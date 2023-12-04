@@ -82,7 +82,7 @@ async function debugDelphi() {
 		...dprMappings,
 	}
 
-	if (!mapPatcher(mapFilePath, mappings, outputChannel)) {
+	if (!await mapPatcher(mapFilePath, mappings, outputChannel)) {
 		return;
 	}
 
@@ -107,7 +107,7 @@ async function parseDprMappings(dprFilePath: string) {
 						), {});
 }
 
-function mapPatcher(mapFileName: string, mappings: UnitMappings, outputChannel: vscode.OutputChannel) {
+async function mapPatcher(mapFileName: string, mappings: UnitMappings, outputChannel: vscode.OutputChannel) {
 	if (path.extname(mapFileName) !== '.map') {
 		vscode.window.showErrorMessage(`Invalid map file: ${mapFileName}`);
 		return false;
@@ -123,14 +123,14 @@ function mapPatcher(mapFileName: string, mappings: UnitMappings, outputChannel: 
 		return false;
 	}
 
-	fs.copyFileSync(mapFileName, `${mapFileName}.bak`);
+	await fs.promises.copyFile(mapFileName, `${mapFileName}.bak`);
 
 	outputChannel.appendLine(`Reading map file...`)
-	const contents = fs.readFileSync(mapFileName, 'utf8');
+	const contents = await fs.promises.readFile(mapFileName, 'utf8');
 	outputChannel.appendLine(`Patching map file...`)
 	const patched = contents.replace(/(?<=Line numbers for.*\().*(?=\).*)/gm, (filename: string) => mappings[filename] ?? filename);
 	outputChannel.appendLine(`Writing map file...`)
-	fs.writeFileSync(mapFileName, patched);
+	await fs.promises.writeFile(mapFileName, patched);
 
 	return true;
 }
