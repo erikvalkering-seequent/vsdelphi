@@ -75,7 +75,7 @@ async function debugDelphi() {
 
 	const dprFilePath = changeExt(dprojFilePath, '.dpr');
 
-	const dprMappings = parseDprMappings(dprFilePath);
+	const dprMappings = await parseDprMappings(dprFilePath);
 
 	const mappings = {
 		[path.basename(dprFilePath)]: dprFilePath,
@@ -94,17 +94,17 @@ async function debugDelphi() {
 	await runDebugger(exePath);
 }
 
-function parseDprMappings(dprFilePath: string) {
+async function parseDprMappings(dprFilePath: string) {
 	const dprFileDir = path.dirname(dprFilePath);
-	return fs.readFileSync(dprFilePath, 'utf8')
-		.match(/(?<=in \')[^\']+(?=\')/gm)
-		?.reduce(
-			(mappings: UnitMappings, unit: string) => (
-				{
-					...mappings,
-					[path.basename(unit)]: path.join(dprFileDir, unit),
-				}
-			), {});
+	const dprContents = await fs.promises.readFile(dprFilePath, 'utf8')
+	return dprContents.match(/(?<=in \')[^\']+(?=\')/gm)
+					 ?.reduce(
+						(mappings: UnitMappings, unit: string) => (
+							{
+								...mappings,
+								[path.basename(unit)]: path.join(dprFileDir, unit),
+							}
+						), {});
 }
 
 function mapPatcher(mapFileName: string, mappings: UnitMappings, outputChannel: vscode.OutputChannel) {
