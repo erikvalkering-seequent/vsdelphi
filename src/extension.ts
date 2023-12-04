@@ -118,7 +118,7 @@ async function parseUnitSearchPaths(dprojFilePath: string) {
 	const filenames = Object
 		.keys(searchPaths)
 		.filter(searchPath => searchPath !== '$(DCC_UnitSearchPath)')
-		.map(async searchPath => await glob(resolveSearchPath(searchPath) + '/**/*.pas'));
+		.map(async searchPath => await glob(resolveSearchPath(searchPath) + '/**/*.{pas,inc}'));
 
 	return (await Promise.all(filenames))
 		.flat()
