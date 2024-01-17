@@ -99,13 +99,16 @@ async function parseDprMappings(dprFilePath: string) {
 }
 
 async function parseUnitSearchPaths(dprojFilePath: string) {
-	const searchPaths = (await fs.promises.readFile(dprojFilePath, 'utf8'))
+	let searchPaths = (await fs.promises.readFile(dprojFilePath, 'utf8'))
 		?.match(/(?<=<DCC_UnitSearchPath>).*(?=<\/DCC_UnitSearchPath>)/)
 		?.flatMap(paths => paths.split(';'))
 		?.reduce((paths, path) => ({ ...paths, [path]: undefined }), {});
 
-	if (searchPaths === undefined) {
-		return {}
+	searchPaths = {
+		// Delphi default directories
+		'$(BDS)\\source\\rtl\\common': undefined,
+
+		...searchPaths
 	}
 
 	const dprojFileDir = path.dirname(dprojFilePath);
