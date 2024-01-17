@@ -15,23 +15,23 @@
         "commands": [
             {
                 "command": "vsdelphi.test",
-                "title": "Test Delphi"
+                "title": "VSDelphi: Test"
             },
             {
                 "command": "vsdelphi.build",
-                "title": "Build Delphi"
+                "title": "VSDelphi: Build"
             },
             {
                 "command": "vsdelphi.run",
-                "title": "Run Delphi"
+                "title": "VSDelphi: Run"
             },
             {
                 "command": "vsdelphi.clean",
-                "title": "Clean Delphi"
+                "title": "VSDelphi: Clean"
             },
             {
                 "command": "vsdelphi.debug",
-                "title": "Debug Delphi"
+                "title": "VSDelphi: Debug"
             }
         ],
         "configuration": {
