@@ -13,7 +13,6 @@ const MAP2PDB_PATH = path.join(__dirname, '..', 'tools', 'map2pdb', 'map2pdb.exe
 // of the `package.json` is activated or when an event from the
 // `activationEvents` section is triggered
 export function activate(context: vscode.ExtensionContext) {
-	registerCmd(context, 'test', testDelphi);
 	registerCmd(context, 'build', buildDelphi);
 	registerCmd(context, 'run', runDelphi);
 	registerCmd(context, 'clean', cleanDelphi);
@@ -191,12 +190,6 @@ async function getDebugConfig(exePath: string) {
 	configurations.push(config);
 
 	await debugConfigurations.update('configurations', configurations);
-}
-
-function testDelphi() {
-	const msg = `test ${EXTENSION_NAME} command.`;
-	console.log(msg);
-	vscode.window.showInformationMessage(msg);
 }
 
 async function buildDelphi() {
