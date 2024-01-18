@@ -64,7 +64,13 @@ async function debugDelphi() {
 	const dprFilePath = changeExt(dprojFilePath, '.dpr');
 
 	const dprMappings = await parseDprMappings(dprFilePath);
-	const unitSearchPaths = await parseUnitSearchPaths(dprojFilePath);
+	const unitSearchPaths = [
+		// Delphi default directories
+		'$(BDS)\\source\\rtl\\common',
+		'C:\\Program Files (x86)\\madCollection\\madExcept\\Sources',
+
+		...await parseUnitSearchPaths(dprojFilePath),
+	]
 
 	let mappings = {
 		[path.basename(dprFilePath)]: dprFilePath,
@@ -106,14 +112,6 @@ async function parseUnitSearchPaths(dprojFilePath: string) {
 	let searchPaths = (await fs.promises.readFile(dprojFilePath, 'utf8'))
 		?.match(/(?<=<DCC_UnitSearchPath>).*(?=<\/DCC_UnitSearchPath>)/)
 		?.flatMap(paths => paths.split(';')) ?? [];
-
-	searchPaths = [
-		// Delphi default directories
-		'$(BDS)\\source\\rtl\\common',
-		'C:\\Program Files (x86)\\madCollection\\madExcept\\Sources',
-
-		...searchPaths,
-	]
 
 	const dprojFileDir = path.dirname(dprojFilePath);
 	const resolveSearchPath = (searchPath: string) =>
