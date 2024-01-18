@@ -127,12 +127,9 @@ async function parseUnitSearchPaths(dprojFilePath: string) {
 
 function filterSubdirectories(filePaths: string[]): string[] {
 	return filePaths.filter((filePath, index) => {
-		for (let i = 0; i < filePaths.length; i++) {
-			if (i !== index && filePath.startsWith(filePaths[i])) {
-				return false;
-			}
-		}
-		return true;
+		return filePaths.every((otherPath, otherIndex) => {
+			return otherIndex === index || !filePath.startsWith(otherPath);
+		});
 	});
 }
 
