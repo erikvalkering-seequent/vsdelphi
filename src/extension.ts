@@ -66,11 +66,14 @@ async function debugDelphi() {
 	const dprMappings = await parseDprMappings(dprFilePath);
 	const unitSearchPathMappings = await parseUnitSearchPaths(dprojFilePath);
 
-	const mappings = {
+	let mappings = {
 		[path.basename(dprFilePath)]: dprFilePath,
 		...dprMappings,
 		...unitSearchPathMappings,
-	}
+	};
+
+	// make keys of mappings lowercase
+	mappings = Object.entries(mappings).reduce((mappings, [key, value]) => ({ ...mappings, [key.toLowerCase()]: value }), {});
 
 	const mapFilePath = changeExt(exePath, '.map');
 	if (!await mapPatcher(mapFilePath, mappings, outputChannel)) {
@@ -150,11 +153,13 @@ async function mapPatcher(mapFileName: string, mappings: UnitMappings, outputCha
 
 	outputChannel.appendLine(`Patching map file...`)
 	const patched = contents.replace(/(?<=Line numbers for.*\().*(?=\).*)/gm, (filename: string) => {
-		if (mappings[filename] === undefined) {
+		const filenameLowerCase = filename.toLowerCase();
+
+		if (mappings[filenameLowerCase] === undefined) {
 			outputChannel.appendLine(`No mapping found for ${filename}...`)
 		}
 
-		return mappings[filename] ?? filename;
+		return mappings[filenameLowerCase] ?? filename;
 	});
 
 	outputChannel.appendLine(`Writing map file...`)
