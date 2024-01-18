@@ -43,24 +43,7 @@ function changeExt(p: string, ext: string) {
 
 type UnitMappings = {[key: string]: string}
 
-async function debugDelphi() {
-	if (!fs.existsSync(MAP2PDB_PATH)) {
-		vscode.window.showErrorMessage(`Unable to find map2pdb.exe at ${MAP2PDB_PATH}.`);
-		return;
-	}
-
-	const outputChannel = createOutputChannel('Debug Delphi');
-	await runMSBuildProcess([], outputChannel);
-
-	const dprojFilePath = await getDprojFilePath();
-	if (!dprojFilePath) {
-		return;
-	}
-	const exePath = await getExecutableFilePath(dprojFilePath);
-	if (!exePath) {
-		return;
-	}
-
+async function generateUnitMappings(dprojFilePath: string) {
 	const dprFilePath = changeExt(dprojFilePath, '.dpr');
 
 	const dprFiles = await parseDprFiles(dprFilePath);
@@ -79,14 +62,34 @@ async function debugDelphi() {
 		...await parseUnitSearchPaths(dprojFilePath),
 	].map(resolveSearchPath);
 
-	const mappings = createMappings([
+	return createMappings([
 		dprFilePath,
 		...dprFiles,
 		...await scanFiles(unitSearchPaths),
 		...await scanFiles(dprFiles.map(path.dirname)),
 	]);
+}
+
+async function debugDelphi() {
+	if (!fs.existsSync(MAP2PDB_PATH)) {
+		vscode.window.showErrorMessage(`Unable to find map2pdb.exe at ${MAP2PDB_PATH}.`);
+		return;
+	}
+
+	const outputChannel = createOutputChannel('Debug Delphi');
+	await runMSBuildProcess([], outputChannel);
+
+	const dprojFilePath = await getDprojFilePath();
+	if (!dprojFilePath) {
+		return;
+	}
+	const exePath = await getExecutableFilePath(dprojFilePath);
+	if (!exePath) {
+		return;
+	}
 
 	const mapFilePath = changeExt(exePath, '.map');
+	const mappings = await generateUnitMappings(dprojFilePath);
 	if (!await mapPatcher(mapFilePath, mappings, outputChannel)) {
 		return;
 	}
