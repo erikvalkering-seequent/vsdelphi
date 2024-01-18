@@ -79,10 +79,7 @@ async function debugDelphi() {
 		...await scanFiles(unitSearchPaths),
 	];
 
-	let mappings = createMappings(files);
-
-	// make keys of mappings lowercase
-	mappings = Object.entries(mappings).reduce((mappings, [key, value]) => ({ ...mappings, [key.toLowerCase()]: value }), {});
+	const mappings = createMappings(files);
 
 	const mapFilePath = changeExt(exePath, '.map');
 	if (!await mapPatcher(mapFilePath, mappings, outputChannel)) {
@@ -108,7 +105,7 @@ function createMappings(filenames: string[]) {
 	return filenames.reduce((mappings, filename) => (
 		{
 			...mappings,
-			[path.basename(filename)]: filename,
+			[path.basename(filename).toLowerCase()]: filename,
 		}), {});
 }
 
