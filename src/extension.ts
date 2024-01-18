@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as xml2js from 'xml2js';
 import * as path from 'path';
 import { glob } from 'glob';
-import * as jimp from 'jimp';
+import ICO from 'icojs';
 
 // The name of the extension as defined in package.json
 const EXTENSION_NAME = 'vsdelphi';
@@ -350,11 +350,10 @@ async function parseIconPath(dprojFilePath: string): Promise<vscode.Uri | undefi
 }
 
 async function convertIcoToPngBuffer(icoFilePath: string): Promise<Buffer> {
-	const image = await jimp.read(icoFilePath);
-	const resizedImage = image.resize(256, 256); // Resize the image if needed
-	const pngBuffer = await resizedImage.getBufferAsync(jimp.MIME_PNG);
+	const icoBuffer = await fs.promises.readFile(icoFilePath);
+	const icoData = await ICO.parse(icoBuffer);
 
-	return pngBuffer;
+	return Buffer.from(icoData[0].buffer);
 }
 
 async function convertIcoToUriBuffer(icoFilePath: string): Promise<vscode.Uri> {
