@@ -306,12 +306,31 @@ async function getExecutableFilePath(dprojFilePath: string): Promise<string> {
 }
 
 async function getDprojFilePath(): Promise<string | undefined> {
-	const dprojFiles = await vscode.workspace.findFiles('**/*.dproj', '**/node_modules/**', 1);
-	if (dprojFiles.length > 0) {
+	const dprojFiles = await vscode.workspace.findFiles('**/*.dproj', '**/node_modules/**');
+	if (dprojFiles.length === 0) {
+		vscode.window.showErrorMessage('No .dproj file found in the current workspace.');
+		return undefined;
+	}
+
+	if (dprojFiles.length === 1) {
 		return dprojFiles[0].fsPath;
 	}
 
-	vscode.window.showErrorMessage('No .dproj file found in the current workspace.');
+	const options: vscode.QuickPickOptions = {
+		canPickMany: false,
+		placeHolder: 'Multiple .dproj files found. Please select one.'
+	};
+
+	const fileItems: vscode.QuickPickItem[] = dprojFiles.map(file => ({
+		label: path.basename(file.fsPath),
+		description: path.dirname(file.fsPath)
+	}));
+
+	const selectedFile = await vscode.window.showQuickPick(fileItems, options);
+	if (selectedFile) {
+		return path.join(selectedFile.description!, selectedFile.label);
+	}
+
 	return undefined;
 }
 
