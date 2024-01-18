@@ -109,19 +109,17 @@ async function parseDprMappings(dprFilePath: string) {
 }
 
 async function parseUnitSearchPaths(dprojFilePath: string) {
-	let searchPaths = (await fs.promises.readFile(dprojFilePath, 'utf8'))
-		?.match(/(?<=<DCC_UnitSearchPath>).*(?=<\/DCC_UnitSearchPath>)/)
-		?.flatMap(paths => paths.split(';')) ?? [];
-
 	const dprojFileDir = path.dirname(dprojFilePath);
 	const resolveSearchPath = (searchPath: string) =>
 		path.join(dprojFileDir, searchPath)
 			.replace(/.*\$\(BDS\)/, getConfigString('embarcaderoInstallDir'))
 			.replaceAll('\\', '/');
 
-	return searchPaths
-		.filter(searchPath => searchPath !== '$(DCC_UnitSearchPath)')
-		.map(resolveSearchPath);
+	return (await fs.promises.readFile(dprojFilePath, 'utf8'))
+		?.match(/(?<=<DCC_UnitSearchPath>).*(?=<\/DCC_UnitSearchPath>)/)
+		?.flatMap(paths => paths.split(';'))
+		?.filter(searchPath => searchPath !== '$(DCC_UnitSearchPath)')
+		?.map(resolveSearchPath) ?? [];
 }
 
 async function scanMappings(searchPaths: string[]) {
