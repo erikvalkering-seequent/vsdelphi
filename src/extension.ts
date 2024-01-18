@@ -309,12 +309,12 @@ async function getExecutableFilePath(dprojFilePath: string): Promise<string> {
 async function parseIconPath(dprojFilePath: string): Promise<vscode.Uri | undefined> {
 	const dprojContent = fs.readFileSync(dprojFilePath, 'utf8');
 	const makeUri = async (iconPath: string) => {
-		const asdf = await convertIcoToUriBuffer(path.join(path.dirname(dprojFilePath), iconPath));
-		return asdf;
+		return await convertIcoToUriBuffer(iconPath);
 	}
 
 	const BDS = getConfigString('embarcaderoInstallDir');
-	const defaultIconPath = path.join(BDS, 'bin', 'delphi_PROJECTICON.ico');
+	const defaultIcon = 'delphi_PROJECTICON.ico';
+	const defaultIconPath = path.join(BDS, 'bin', defaultIcon);
 
 	const iconRegex = /<Icon_MainIcon.*>(.*?)<\/Icon_MainIcon>/g;
 	const iconPaths: string[] = [];
@@ -333,10 +333,9 @@ async function parseIconPath(dprojFilePath: string): Promise<vscode.Uri | undefi
 	}
 
 	if (iconPaths.length === 1) {
-		return makeUri(iconPaths[0]);
+		return makeUri(path.join(path.dirname(dprojFilePath), iconPaths[0]));
 	}
 
-	const defaultIcon = 'delphi_PROJECTICON.ico';
 	const remainingIcons = iconPaths.filter((iconPath) => iconPath !== defaultIcon);
 	if (remainingIcons.length === 0) {
 		return makeUri(defaultIconPath);
@@ -346,7 +345,7 @@ async function parseIconPath(dprojFilePath: string): Promise<vscode.Uri | undefi
 		return iconPath.length < shortest.length ? iconPath : shortest;
 	});
 
-	return makeUri(shortestIcon);
+	return makeUri(path.join(path.dirname(dprojFilePath), shortestIcon));
 }
 
 async function convertIcoToPngBuffer(icoFilePath: string): Promise<Buffer> {
