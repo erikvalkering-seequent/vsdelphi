@@ -115,7 +115,9 @@ async function parseUnitSearchPaths(dprojFilePath: string) {
 			.replace(/.*\$\(BDS\)/, getConfigString('embarcaderoInstallDir'))
 			.replaceAll('\\', '/');
 
-	return (await fs.promises.readFile(dprojFilePath, 'utf8'))
+	const dprojContent = await fs.promises.readFile(dprojFilePath, 'utf8');
+
+	return dprojContent
 		?.match(/(?<=<DCC_UnitSearchPath>).*(?=<\/DCC_UnitSearchPath>)/)
 		?.flatMap(paths => paths.split(';'))
 		?.filter(searchPath => searchPath !== '$(DCC_UnitSearchPath)')
