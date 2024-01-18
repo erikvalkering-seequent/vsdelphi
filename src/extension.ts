@@ -65,8 +65,7 @@ async function generateUnitMappings(dprojFilePath: string) {
 	return createMappings([
 		dprFilePath,
 		...dprFiles,
-		...await scanFiles(unitSearchPaths),
-		...await scanFiles(dprFiles.map(path.dirname)),
+		...await scanFiles(dprFiles.map(path.dirname).concat(unitSearchPaths)),
 	]);
 }
 
