@@ -124,6 +124,10 @@ async function parseUnitSearchPaths(dprojFilePath: string) {
 		.filter(searchPath => searchPath !== '$(DCC_UnitSearchPath)')
 		.map(resolveSearchPath);
 
+	return await scanMappings(searchPaths);
+}
+
+async function scanMappings(searchPaths: string[]) {
 	// Make the searchPaths unique
 	searchPaths = [...new Set(searchPaths)];
 
