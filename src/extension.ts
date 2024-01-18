@@ -64,12 +64,13 @@ async function debugDelphi() {
 	const dprFilePath = changeExt(dprojFilePath, '.dpr');
 
 	const dprMappings = await parseDprMappings(dprFilePath);
-	const unitSearchPathMappings = await parseUnitSearchPaths(dprojFilePath);
+	const unitSearchPaths = await parseUnitSearchPaths(dprojFilePath);
 
 	let mappings = {
 		[path.basename(dprFilePath)]: dprFilePath,
 		...dprMappings,
-		...unitSearchPathMappings,
+
+		...await scanMappings(unitSearchPaths),
 	};
 
 	// make keys of mappings lowercase
@@ -120,11 +121,9 @@ async function parseUnitSearchPaths(dprojFilePath: string) {
 			.replace(/.*\$\(BDS\)/, getConfigString('embarcaderoInstallDir'))
 			.replaceAll('\\', '/');
 
-	searchPaths = searchPaths
+	return searchPaths
 		.filter(searchPath => searchPath !== '$(DCC_UnitSearchPath)')
 		.map(resolveSearchPath);
-
-	return await scanMappings(searchPaths);
 }
 
 async function scanMappings(searchPaths: string[]) {
