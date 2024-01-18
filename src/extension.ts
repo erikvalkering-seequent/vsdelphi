@@ -63,7 +63,8 @@ async function debugDelphi() {
 
 	const dprFilePath = changeExt(dprojFilePath, '.dpr');
 
-	const dprMappings = await parseDprMappings(dprFilePath);
+	const dprFiles = await parseDprFiles(dprFilePath);
+
 	const unitSearchPaths = [
 		// Delphi default directories
 		'$(BDS)\\source\\rtl\\common',
@@ -72,12 +73,13 @@ async function debugDelphi() {
 		...await parseUnitSearchPaths(dprojFilePath),
 	]
 
-	let mappings = {
-		[path.basename(dprFilePath)]: dprFilePath,
-		...dprMappings,
+	const files = [
+		dprFilePath,
+		...dprFiles,
+		...await scanFiles(unitSearchPaths),
+	];
 
-		...await scanMappings(unitSearchPaths),
-	};
+	let mappings = createMappings(files);
 
 	// make keys of mappings lowercase
 	mappings = Object.entries(mappings).reduce((mappings, [key, value]) => ({ ...mappings, [key.toLowerCase()]: value }), {});
@@ -95,17 +97,19 @@ async function debugDelphi() {
 	await runDebugger(exePath);
 }
 
-async function parseDprMappings(dprFilePath: string) {
+async function parseDprFiles(dprFilePath: string) {
 	const dprFileDir = path.dirname(dprFilePath);
 	return (await fs.promises.readFile(dprFilePath, 'utf8'))
 		?.match(/(?<=in \')[^\']+(?=\')/gm)
-		?.reduce(
-		(mappings, unit) => (
-			{
-				...mappings,
-				[path.basename(unit)]: path.join(dprFileDir, unit),
-			}
-		), {});
+		?.map(unit => path.join(dprFileDir, unit)) ?? [];
+}
+
+function createMappings(filenames: string[]) {
+	return filenames.reduce((mappings, filename) => (
+		{
+			...mappings,
+			[path.basename(filename)]: filename,
+		}), {});
 }
 
 async function parseUnitSearchPaths(dprojFilePath: string) {
@@ -124,16 +128,14 @@ async function parseUnitSearchPaths(dprojFilePath: string) {
 		 .map(resolveSearchPath) ?? [];
 }
 
-async function scanMappings(searchPaths: string[]) {
+async function scanFiles(searchPaths: string[]) {
 	// Make the searchPaths unique
 	searchPaths = [...new Set(searchPaths)];
 
 	const filenames = searchPaths
 		.map(async searchPath => await glob(searchPath + '/**/*.{pas,inc}'));
 
-	return (await Promise.all(filenames))
-		.flat()
-		.reduce((mappings, filename) => ({ ...mappings, [path.basename(filename)]: filename }), {});
+	return (await Promise.all(filenames)).flat();
 }
 
 async function mapPatcher(mapFileName: string, mappings: UnitMappings, outputChannel: vscode.OutputChannel) {
