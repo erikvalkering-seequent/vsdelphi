@@ -259,8 +259,8 @@ async function runMSBuildProcess(extraArgs: readonly string[] = [], outputChanne
 		outputChannel.appendLine(data.toString());
 	});
 
-	return  new Promise((resolve, reject) => {
-		buildProcess.on('close', (code) =>{
+	return new Promise((resolve, reject) => {
+		buildProcess.on('close', (code) => {
 			outputChannel.appendLine(`Build process exited with code ${code}`);
 			if (code === 0) {
 				resolve();
