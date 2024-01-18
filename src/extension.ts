@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as xml2js from 'xml2js';
 import * as path from 'path';
 import { glob } from 'glob';
-import sharp from 'sharp';
+import * as jimp from 'jimp';
 
 // The name of the extension as defined in package.json
 const EXTENSION_NAME = 'vsdelphi';
@@ -350,10 +350,9 @@ async function parseIconPath(dprojFilePath: string): Promise<vscode.Uri | undefi
 }
 
 async function convertIcoToPngBuffer(icoFilePath: string): Promise<Buffer> {
-	const pngBuffer = await sharp(icoFilePath)
-		.resize(256, 256) // Resize the image if needed
-		.png()
-		.toBuffer();
+	const image = await jimp.read(icoFilePath);
+	const resizedImage = image.resize(256, 256); // Resize the image if needed
+	const pngBuffer = await resizedImage.getBufferAsync(jimp.MIME_PNG);
 
 	return pngBuffer;
 }
