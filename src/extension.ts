@@ -125,9 +125,19 @@ async function parseUnitSearchPaths(dprojFilePath: string) {
 		 .filter(searchPath => searchPath !== '$(DCC_UnitSearchPath)') ?? [];
 }
 
+function filterSubdirectories(filePaths: string[]): string[] {
+	return filePaths.filter((filePath, index) => {
+		for (let i = 0; i < filePaths.length; i++) {
+			if (i !== index && filePath.startsWith(filePaths[i])) {
+				return false;
+			}
+		}
+		return true;
+	});
+}
+
 async function scanFiles(searchPaths: string[]) {
-	// Make the searchPaths unique
-	searchPaths = [...new Set(searchPaths)];
+	searchPaths = filterSubdirectories([...new Set(searchPaths)])
 
 	return await glob(searchPaths.map(searchPath => searchPath + '/**/*.{pas,inc}'));
 }
