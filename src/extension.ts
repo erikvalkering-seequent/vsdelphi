@@ -77,6 +77,7 @@ async function debugDelphi() {
 		dprFilePath,
 		...dprFiles,
 		...await scanFiles(unitSearchPaths),
+		...await scanFiles(dprFiles.map(path.dirname)),
 	];
 
 	const mappings = createMappings(files);
