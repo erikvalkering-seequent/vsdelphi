@@ -110,6 +110,7 @@ async function parseUnitSearchPaths(dprojFilePath: string) {
 	searchPaths = {
 		// Delphi default directories
 		'$(BDS)\\source\\rtl\\common': undefined,
+		'C:\\Program Files (x86)\\madCollection\\madExcept\\Sources': undefined,
 
 		...searchPaths
 	}
