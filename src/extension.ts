@@ -147,8 +147,16 @@ async function mapPatcher(mapFileName: string, mappings: UnitMappings, outputCha
 
 	outputChannel.appendLine(`Reading map file...`)
 	const contents = await fs.promises.readFile(mapFileName, 'utf8');
+
 	outputChannel.appendLine(`Patching map file...`)
-	const patched = contents.replace(/(?<=Line numbers for.*\().*(?=\).*)/gm, (filename: string) => mappings[filename] ?? filename);
+	const patched = contents.replace(/(?<=Line numbers for.*\().*(?=\).*)/gm, (filename: string) => {
+		if (mappings[filename] === undefined) {
+			outputChannel.appendLine(`No mapping found for ${filename}...`)
+		}
+
+		return mappings[filename] ?? filename;
+	});
+
 	outputChannel.appendLine(`Writing map file...`)
 	await fs.promises.writeFile(mapFileName, patched);
 
