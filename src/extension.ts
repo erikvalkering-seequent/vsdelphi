@@ -73,14 +73,12 @@ async function debugDelphi() {
 		...await parseUnitSearchPaths(dprojFilePath),
 	]
 
-	const files = [
+	const mappings = createMappings([
 		dprFilePath,
 		...dprFiles,
 		...await scanFiles(unitSearchPaths),
 		...await scanFiles(dprFiles.map(path.dirname)),
-	];
-
-	const mappings = createMappings(files);
+	]);
 
 	const mapFilePath = changeExt(exePath, '.map');
 	if (!await mapPatcher(mapFilePath, mappings, outputChannel)) {
