@@ -65,13 +65,19 @@ async function debugDelphi() {
 
 	const dprFiles = await parseDprFiles(dprFilePath);
 
+	const dprojFileDir = path.dirname(dprojFilePath);
+	const resolveSearchPath = (searchPath: string) =>
+		path.join(dprojFileDir, searchPath)
+			.replace(/.*\$\(BDS\)/, getConfigString('embarcaderoInstallDir'))
+			.replaceAll('\\', '/');
+
 	const unitSearchPaths = [
 		// Delphi default directories
 		'$(BDS)\\source\\rtl\\common',
 		'C:\\Program Files (x86)\\madCollection\\madExcept\\Sources',
 
 		...await parseUnitSearchPaths(dprojFilePath),
-	]
+	].map(resolveSearchPath);
 
 	const mappings = createMappings([
 		dprFilePath,
@@ -109,19 +115,12 @@ function createMappings(filenames: string[]) {
 }
 
 async function parseUnitSearchPaths(dprojFilePath: string) {
-	const dprojFileDir = path.dirname(dprojFilePath);
-	const resolveSearchPath = (searchPath: string) =>
-		path.join(dprojFileDir, searchPath)
-			.replace(/.*\$\(BDS\)/, getConfigString('embarcaderoInstallDir'))
-			.replaceAll('\\', '/');
-
 	const dprojContent = await fs.promises.readFile(dprojFilePath, 'utf8');
 
 	return dprojContent
 		?.match(/(?<=<DCC_UnitSearchPath>).*(?=<\/DCC_UnitSearchPath>)/)
 		?.flatMap(paths => paths.split(';'))
-		 .filter(searchPath => searchPath !== '$(DCC_UnitSearchPath)')
-		 .map(resolveSearchPath) ?? [];
+		 .filter(searchPath => searchPath !== '$(DCC_UnitSearchPath)') ?? [];
 }
 
 async function scanFiles(searchPaths: string[]) {
