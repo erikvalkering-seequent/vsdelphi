@@ -104,16 +104,15 @@ async function parseDprMappings(dprFilePath: string) {
 async function parseUnitSearchPaths(dprojFilePath: string) {
 	let searchPaths = (await fs.promises.readFile(dprojFilePath, 'utf8'))
 		?.match(/(?<=<DCC_UnitSearchPath>).*(?=<\/DCC_UnitSearchPath>)/)
-		?.flatMap(paths => paths.split(';'))
-		?.reduce((paths, path) => ({ ...paths, [path]: undefined }), {});
+		?.flatMap(paths => paths.split(';')) ?? [];
 
-	searchPaths = {
+	searchPaths = [
 		// Delphi default directories
-		'$(BDS)\\source\\rtl\\common': undefined,
-		'C:\\Program Files (x86)\\madCollection\\madExcept\\Sources': undefined,
+		'$(BDS)\\source\\rtl\\common',
+		'C:\\Program Files (x86)\\madCollection\\madExcept\\Sources',
 
-		...searchPaths
-	}
+		...searchPaths,
+	]
 
 	const dprojFileDir = path.dirname(dprojFilePath);
 	const resolveSearchPath = (searchPath: string) =>
@@ -121,10 +120,15 @@ async function parseUnitSearchPaths(dprojFilePath: string) {
 			.replace(/.*\$\(BDS\)/, getConfigString('embarcaderoInstallDir'))
 			.replaceAll('\\', '/');
 
-	const filenames = Object
-		.keys(searchPaths)
+	searchPaths = searchPaths
 		.filter(searchPath => searchPath !== '$(DCC_UnitSearchPath)')
-		.map(async searchPath => await glob(resolveSearchPath(searchPath) + '/**/*.{pas,inc}'));
+		.map(resolveSearchPath);
+
+	// Make the searchPaths unique
+	searchPaths = [...new Set(searchPaths)];
+
+	const filenames = searchPaths
+		.map(async searchPath => await glob(searchPath + '/**/*.{pas,inc}'));
 
 	return (await Promise.all(filenames))
 		.flat()
