@@ -129,10 +129,7 @@ async function scanFiles(searchPaths: string[]) {
 	// Make the searchPaths unique
 	searchPaths = [...new Set(searchPaths)];
 
-	const filenames = searchPaths
-		.map(async searchPath => await glob(searchPath + '/**/*.{pas,inc}'));
-
-	return (await Promise.all(filenames)).flat();
+	return await glob(searchPaths.map(searchPath => searchPath + '/**/*.{pas,inc}'));
 }
 
 async function mapPatcher(mapFileName: string, mappings: UnitMappings, outputChannel: vscode.OutputChannel) {
