@@ -75,13 +75,14 @@ async function debugDelphi() {
 		return;
 	}
 
-	const outputChannel = createOutputChannel('Debug Delphi');
-	await runMSBuildProcess([], outputChannel);
-
 	const dprojFilePath = await getDprojFilePath();
 	if (!dprojFilePath) {
 		return;
 	}
+
+	const outputChannel = createOutputChannel('Debug Delphi');
+	await runMSBuildProcess(dprojFilePath, [], outputChannel);
+
 	const exePath = await getExecutableFilePath(dprojFilePath);
 	if (!exePath) {
 		return;
@@ -218,15 +219,21 @@ async function getDebugConfig(exePath: string) {
 }
 
 async function buildDelphi() {
-	await runMSBuildProcess([], createOutputChannel('Build Delphi'));
-}
-
-async function runDelphi() {
-	await runMSBuildProcess([], createOutputChannel('Run Delphi'));
 	const dprojFilePath = await getDprojFilePath();
 	if (!dprojFilePath) {
 		return;
 	}
+
+	await runMSBuildProcess(dprojFilePath, [], createOutputChannel('Build Delphi'));
+}
+
+async function runDelphi() {
+	const dprojFilePath = await getDprojFilePath();
+	if (!dprojFilePath) {
+		return;
+	}
+
+	await runMSBuildProcess(dprojFilePath, [], createOutputChannel('Run Delphi'));
 
 	const exePath = await getExecutableFilePath(dprojFilePath);
 	fs.promises.access(exePath, fs.constants.X_OK)
@@ -235,17 +242,17 @@ async function runDelphi() {
 }
 
 async function cleanDelphi() {
-	await runMSBuildProcess(['/t:Clean'], createOutputChannel('Clean Delphi'));
-}
-
-async function runMSBuildProcess(extraArgs: readonly string[] = [], outputChannel: vscode.OutputChannel): Promise<void> {
-	const rsvarsPath = getConfigString('rsvarsPath');
-	if (!rsvarsPath) {
+	const dprojFilePath = await getDprojFilePath();
+	if (!dprojFilePath) {
 		return;
 	}
 
-	const dprojPath = await getDprojFilePath();
-	if (!dprojPath) {
+	await runMSBuildProcess(dprojFilePath, ['/t:Clean'], createOutputChannel('Clean Delphi'));
+}
+
+async function runMSBuildProcess(dprojPath: string, extraArgs: readonly string[] = [], outputChannel: vscode.OutputChannel): Promise<void> {
+	const rsvarsPath = getConfigString('rsvarsPath');
+	if (!rsvarsPath) {
 		return;
 	}
 
