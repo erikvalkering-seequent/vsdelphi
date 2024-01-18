@@ -120,8 +120,8 @@ async function parseUnitSearchPaths(dprojFilePath: string) {
 	return dprojContent
 		?.match(/(?<=<DCC_UnitSearchPath>).*(?=<\/DCC_UnitSearchPath>)/)
 		?.flatMap(paths => paths.split(';'))
-		?.filter(searchPath => searchPath !== '$(DCC_UnitSearchPath)')
-		?.map(resolveSearchPath) ?? [];
+		.filter(searchPath => searchPath !== '$(DCC_UnitSearchPath)')
+		.map(resolveSearchPath) ?? [];
 }
 
 async function scanMappings(searchPaths: string[]) {
