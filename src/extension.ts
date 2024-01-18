@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as xml2js from 'xml2js';
 import * as path from 'path';
 import { glob } from 'glob';
+import sharp from 'sharp';
 
 // The name of the extension as defined in package.json
 const EXTENSION_NAME = 'vsdelphi';
@@ -305,6 +306,66 @@ async function getExecutableFilePath(dprojFilePath: string): Promise<string> {
 	return '';
 }
 
+async function parseIconPath(dprojFilePath: string): Promise<vscode.Uri | undefined> {
+	const dprojContent = fs.readFileSync(dprojFilePath, 'utf8');
+	const makeUri = async (iconPath: string) => {
+		const asdf = await convertIcoToUriBuffer(path.join(path.dirname(dprojFilePath), iconPath));
+		return asdf;
+	}
+
+	const BDS = getConfigString('embarcaderoInstallDir');
+	const defaultIconPath = path.join(BDS, 'bin', 'delphi_PROJECTICON.ico');
+
+	const iconRegex = /<Icon_MainIcon.*>(.*?)<\/Icon_MainIcon>/g;
+	const iconPaths: string[] = [];
+	let match;
+
+	while ((match = iconRegex.exec(dprojContent)) !== null) {
+		const iconPath = match[1].trim();
+		if (iconPath.startsWith('$(')) {
+			continue;
+		}
+		iconPaths.push(iconPath);
+	}
+
+	if (iconPaths.length === 0) {
+		return makeUri(defaultIconPath);
+	}
+
+	if (iconPaths.length === 1) {
+		return makeUri(iconPaths[0]);
+	}
+
+	const defaultIcon = 'delphi_PROJECTICON.ico';
+	const remainingIcons = iconPaths.filter((iconPath) => iconPath !== defaultIcon);
+	if (remainingIcons.length === 0) {
+		return makeUri(defaultIconPath);
+	}
+
+	const shortestIcon = remainingIcons.reduce((shortest, iconPath) => {
+		return iconPath.length < shortest.length ? iconPath : shortest;
+	});
+
+	return makeUri(shortestIcon);
+}
+
+async function convertIcoToPngBuffer(icoFilePath: string): Promise<Buffer> {
+	const pngBuffer = await sharp(icoFilePath)
+		.resize(256, 256) // Resize the image if needed
+		.png()
+		.toBuffer();
+
+	return pngBuffer;
+}
+
+async function convertIcoToUriBuffer(icoFilePath: string): Promise<vscode.Uri> {
+	const pngBuffer = await convertIcoToPngBuffer(icoFilePath);
+	const base64Data = pngBuffer.toString('base64');
+	const uriBuffer = Buffer.from(base64Data, 'base64');
+
+	return vscode.Uri.parse(`data:image/png;base64,${uriBuffer.toString('base64')}`);
+}
+
 async function getDprojFilePath(): Promise<string | undefined> {
 	const dprojFiles = await vscode.workspace.findFiles('**/*.dproj', '**/node_modules/**');
 	if (dprojFiles.length === 0) {
@@ -321,10 +382,12 @@ async function getDprojFilePath(): Promise<string | undefined> {
 		placeHolder: 'Multiple .dproj files found. Please select one.'
 	};
 
-	const fileItems: vscode.QuickPickItem[] = dprojFiles.map(file => ({
-		label: path.basename(file.fsPath),
-		description: path.dirname(file.fsPath)
-	}));
+	const fileItems: vscode.QuickPickItem[] = await Promise.all(
+		dprojFiles.map(async file => ({
+			label: path.basename(file.fsPath),
+			description: path.dirname(file.fsPath),
+			iconPath: await parseIconPath(file.fsPath),
+		})));
 
 	const selectedFile = await vscode.window.showQuickPick(fileItems, options);
 	if (selectedFile) {
