@@ -44,12 +44,16 @@ function changeExt(p: string, ext: string) {
 
 type UnitMappings = {[key: string]: string}
 
-async function generateUnitMappings(dprojFilePath: string) {
-	const dprFilePath = changeExt(dprojFilePath, '.dpr');
+type DprojPaths = {
+	dproj: string,
+	dpr: string,
+	exe: string,
+}
 
-	const dprFiles = await parseDprFiles(dprFilePath);
+async function generateUnitMappings(dprojPaths: DprojPaths) {
+	const dprFiles = await parseDprFiles(dprojPaths.dpr);
 
-	const dprojFileDir = path.dirname(dprojFilePath);
+	const dprojFileDir = path.dirname(dprojPaths.dproj);
 	const resolveSearchPath = (searchPath: string) =>
 		path.join(dprojFileDir, searchPath)
 			.replace(/.*\$\(BDS\)/, getConfigString('embarcaderoInstallDir'))
@@ -60,11 +64,11 @@ async function generateUnitMappings(dprojFilePath: string) {
 		'$(BDS)\\source\\rtl\\common',
 		'C:\\Program Files (x86)\\madCollection\\madExcept\\Sources',
 
-		...await parseUnitSearchPaths(dprojFilePath),
+		...await parseUnitSearchPaths(dprojPaths.dproj),
 	].map(resolveSearchPath);
 
 	return createMappings([
-		dprFilePath,
+		dprojPaths.dpr,
 		...dprFiles,
 		...await scanFiles(dprFiles.map(path.dirname).concat(unitSearchPaths)),
 	]);
@@ -84,13 +88,13 @@ async function debugDelphi() {
 	const outputChannel = createOutputChannel('Debug Delphi');
 	await runMSBuildProcess(dprojFilePath, [], outputChannel);
 
-	const exePath = await getExecutableFilePath(dprojFilePath);
-	if (!exePath) {
+	const dprojPaths = await parseDprojPaths(dprojFilePath);
+	if (!dprojPaths) {
 		return;
 	}
 
-	const mapFilePath = changeExt(exePath, '.map');
-	const mappings = await generateUnitMappings(dprojFilePath);
+	const mapFilePath = changeExt(dprojPaths.exe, '.map');
+	const mappings = await generateUnitMappings(dprojPaths);
 	if (!await mapPatcher(mapFilePath, mappings, outputChannel)) {
 		return;
 	}
@@ -100,7 +104,7 @@ async function debugDelphi() {
 		vscode.window.showErrorMessage(convertProcess.error.message);
 	}
 
-	await runDebugger(exePath);
+	await runDebugger(dprojPaths.exe);
 }
 
 async function parseDprFiles(dprFilePath: string) {
@@ -236,10 +240,14 @@ async function runDelphi() {
 
 	await runMSBuildProcess(dprojFilePath, [], createOutputChannel('Run Delphi'));
 
-	const exePath = await getExecutableFilePath(dprojFilePath);
-	fs.promises.access(exePath, fs.constants.X_OK)
-		.then(() => vscode.env.openExternal(vscode.Uri.file(exePath)))
-		.catch(() => vscode.window.showErrorMessage(`File does not exist: ${exePath}`));
+	const dprojPaths = await parseDprojPaths(dprojFilePath);
+	if (!dprojPaths) {
+		return;
+	}
+
+	fs.promises.access(dprojPaths.exe, fs.constants.X_OK)
+		.then(() => vscode.env.openExternal(vscode.Uri.file(dprojPaths.exe)))
+		.catch(() => vscode.window.showErrorMessage(`File does not exist: ${dprojPaths.exe}`));
 }
 
 async function cleanDelphi() {
@@ -280,10 +288,27 @@ async function runMSBuildProcess(dprojPath: string, extraArgs: readonly string[]
 	});
 }
 
-async function getExecutableFilePath(dprojFilePath: string): Promise<string> {
+async function parseDprojPaths(dprojFilePath: string): Promise<DprojPaths | undefined> {
 	const dprojContent = await fs.promises.readFile(dprojFilePath, 'utf8');
 	const dprojXml = await xml2js.parseStringPromise(dprojContent);
 	const propGroups = dprojXml.Project.PropertyGroup;
+
+	let dpr = undefined;
+
+	for (const propGroup of propGroups) {
+		if (propGroup.MainSource) {
+			const mainSource = propGroup.MainSource[0];
+			dpr = path.join(path.dirname(dprojFilePath), mainSource);
+			break;
+		}
+	}
+
+	if (dpr === undefined) {
+		vscode.window.showErrorMessage(`Unable to obtain main source file from ${dprojFilePath}.`);
+		return undefined;
+	}
+
+	let exe = undefined;
 	for (const propGroup of propGroups) {
 		if (!(propGroup.DCC_ExeOutput && propGroup.SanitizedProjectName)) {
 			continue;
@@ -298,12 +323,20 @@ async function getExecutableFilePath(dprojFilePath: string): Promise<string> {
 		}
 		const projectName = propGroup.SanitizedProjectName[0];
 		const exePath = path.join(relativeOutputDir, `${projectName}.exe`);
-		return path.isAbsolute(exePath) ? exePath
-										: path.join(path.dirname(dprojFilePath), exePath);
+		exe = path.isAbsolute(exePath) ? exePath
+											 : path.join(path.dirname(dprojFilePath), exePath);
 	}
 
-	vscode.window.showErrorMessage(`Unable to obtain output directory/executable name from ${dprojFilePath}.`);
-	return '';
+	if (exe === undefined) {
+		// Fallback to dpr file name if no exe name is specified
+		exe = changeExt(dpr, '.exe');
+	}
+
+	return {
+		dpr,
+		exe,
+		dproj: dprojFilePath,
+	};
 }
 
 async function parseIconPath(dprojFilePath: string): Promise<vscode.Uri | undefined> {
