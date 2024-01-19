@@ -1,7 +1,8 @@
 {
     "name": "vsdelphi",
-    "displayName": "VSDelphi",
+    "displayName": "Pythia VSDelphi",
     "description": "VSCode IDE support for Delphi",
+    "publisher": "pythia",
     "version": "0.0.1",
     "engines": {
         "vscode": "^1.84.0"
