@@ -309,6 +309,10 @@ async function getExecutableFilePath(dprojFilePath: string): Promise<string> {
 async function parseIconPath(dprojFilePath: string): Promise<vscode.Uri | undefined> {
 	const dprojContent = fs.readFileSync(dprojFilePath, 'utf8');
 	const makeUri = async (iconPath: string) => {
+		if (!fs.existsSync(iconPath)) {
+			return undefined;
+		}
+
 		return await convertIcoToUriBuffer(iconPath);
 	}
 
