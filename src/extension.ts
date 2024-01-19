@@ -411,6 +411,9 @@ async function getDprojFilePath(): Promise<string | undefined> {
 		return dprojFiles[0].fsPath;
 	}
 
+	// Sort the dprojFiles array in a deterministic order
+	dprojFiles.sort((a, b) => a.fsPath.localeCompare(b.fsPath));
+
 	const options: vscode.QuickPickOptions = {
 		canPickMany: false,
 		placeHolder: 'Multiple .dproj files found. Please select one.'
