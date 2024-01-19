@@ -14,24 +14,20 @@
     "contributes": {
         "commands": [
             {
-                "command": "vsdelphi.test",
-                "title": "Test Delphi"
-            },
-            {
                 "command": "vsdelphi.build",
-                "title": "Build Delphi"
+                "title": "VSDelphi: Build"
             },
             {
                 "command": "vsdelphi.run",
-                "title": "Run Delphi"
+                "title": "VSDelphi: Run"
             },
             {
                 "command": "vsdelphi.clean",
-                "title": "Clean Delphi"
+                "title": "VSDelphi: Clean"
             },
             {
                 "command": "vsdelphi.debug",
-                "title": "Debug Delphi"
+                "title": "VSDelphi: Debug"
             }
         ],
         "configuration": {
@@ -79,11 +75,12 @@
         "@typescript-eslint/parser": "^6.9.0",
         "@vscode/test-electron": "^2.3.6",
         "eslint": "^8.52.0",
-        "glob": "^10.3.10",
         "mocha": "^10.2.0",
         "typescript": "^5.2.2"
     },
     "dependencies": {
+        "glob": "^10.3.10",
+        "icojs": "^0.17.1",
         "xml2js": "^0.6.2"
     }
 }

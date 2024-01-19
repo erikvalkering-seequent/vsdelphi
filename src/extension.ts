@@ -3,17 +3,17 @@ import * as childProcess from 'child_process';
 import * as fs from 'fs';
 import * as xml2js from 'xml2js';
 import * as path from 'path';
+import { glob } from 'glob';
+import ICO from 'icojs';
 
 // The name of the extension as defined in package.json
 const EXTENSION_NAME = 'vsdelphi';
-const MAP_PATCHER_PATH = path.join(__dirname, '..', 'tools', 'MapPatcher', 'MapPatcher.exe');
 const MAP2PDB_PATH = path.join(__dirname, '..', 'tools', 'map2pdb', 'map2pdb.exe');
 
 // This method is called when anythin from the `contributes` section
 // of the `package.json` is activated or when an event from the
 // `activationEvents` section is triggered
 export function activate(context: vscode.ExtensionContext) {
-	registerCmd(context, 'test', testDelphi);
 	registerCmd(context, 'build', buildDelphi);
 	registerCmd(context, 'run', runDelphi);
 	registerCmd(context, 'clean', cleanDelphi);
@@ -31,38 +31,68 @@ function registerCmd(context: vscode.ExtensionContext, cmdName: string, cmdCallb
 	context.subscriptions.push(vscode.commands.registerCommand(`${EXTENSION_NAME}.${cmdName}`, cmdCallback));
 }
 
-async function debugDelphi() {
-	if (!fs.existsSync(MAP_PATCHER_PATH)) {
-		vscode.window.showErrorMessage(`Unable to find MapPatcher.exe at ${MAP_PATCHER_PATH}.`);
-		return;
-	}
+function createOutputChannel(name: string) {
+	const outputChannel = vscode.window.createOutputChannel(name);
+	outputChannel.show();
 
+	return outputChannel;
+}
+
+function changeExt(p: string, ext: string) {
+	return path.format({ ...path.parse(p), base: '', ext });
+}
+
+type UnitMappings = {[key: string]: string}
+
+async function generateUnitMappings(dprojFilePath: string) {
+	const dprFilePath = changeExt(dprojFilePath, '.dpr');
+
+	const dprFiles = await parseDprFiles(dprFilePath);
+
+	const dprojFileDir = path.dirname(dprojFilePath);
+	const resolveSearchPath = (searchPath: string) =>
+		path.join(dprojFileDir, searchPath)
+			.replace(/.*\$\(BDS\)/, getConfigString('embarcaderoInstallDir'))
+			.replaceAll('\\', '/');
+
+	const unitSearchPaths = [
+		// Delphi default directories
+		'$(BDS)\\source\\rtl\\common',
+		'C:\\Program Files (x86)\\madCollection\\madExcept\\Sources',
+
+		...await parseUnitSearchPaths(dprojFilePath),
+	].map(resolveSearchPath);
+
+	return createMappings([
+		dprFilePath,
+		...dprFiles,
+		...await scanFiles(dprFiles.map(path.dirname).concat(unitSearchPaths)),
+	]);
+}
+
+async function debugDelphi() {
 	if (!fs.existsSync(MAP2PDB_PATH)) {
 		vscode.window.showErrorMessage(`Unable to find map2pdb.exe at ${MAP2PDB_PATH}.`);
 		return;
 	}
 
-	await runMSBuildProcess([], 'Build Delphi');
-
 	const dprojFilePath = await getDprojFilePath();
 	if (!dprojFilePath) {
 		return;
 	}
+
+	const outputChannel = createOutputChannel('Debug Delphi');
+	await runMSBuildProcess(dprojFilePath, [], outputChannel);
+
 	const exePath = await getExecutableFilePath(dprojFilePath);
 	if (!exePath) {
 		return;
 	}
 
-	const mapFilePath = exePath.replace(path.extname(exePath), '.map');
-	const sourceDirs = [getConfigString('embarcaderoInstallDir'), path.dirname(dprojFilePath)];
-	if (!sourceDirs) {
+	const mapFilePath = changeExt(exePath, '.map');
+	const mappings = await generateUnitMappings(dprojFilePath);
+	if (!await mapPatcher(mapFilePath, mappings, outputChannel)) {
 		return;
-	}
-
-	const args = [mapFilePath, ...sourceDirs];
-	var mapPatchProcess = childProcess.spawnSync(MAP_PATCHER_PATH, args);
-	if (mapPatchProcess.error) {
-		vscode.window.showErrorMessage(mapPatchProcess.error.message);
 	}
 
 	const convertProcess = childProcess.spawnSync(MAP2PDB_PATH, ['-bind', mapFilePath]);
@@ -71,6 +101,82 @@ async function debugDelphi() {
 	}
 
 	await runDebugger(exePath);
+}
+
+async function parseDprFiles(dprFilePath: string) {
+	const dprFileDir = path.dirname(dprFilePath);
+	return (await fs.promises.readFile(dprFilePath, 'utf8'))
+		?.match(/(?<=in \')[^\']+(?=\')/gm)
+		?.map(unit => path.join(dprFileDir, unit)) ?? [];
+}
+
+function createMappings(filenames: string[]) {
+	return filenames.reduce((mappings, filename) => (
+		{
+			...mappings,
+			[path.basename(filename).toLowerCase()]: filename,
+		}), {});
+}
+
+async function parseUnitSearchPaths(dprojFilePath: string) {
+	const dprojContent = await fs.promises.readFile(dprojFilePath, 'utf8');
+
+	return dprojContent
+		?.match(/(?<=<DCC_UnitSearchPath>).*(?=<\/DCC_UnitSearchPath>)/)
+		?.flatMap(paths => paths.split(';'))
+		 .filter(searchPath => searchPath !== '$(DCC_UnitSearchPath)') ?? [];
+}
+
+function filterSubdirectories(filePaths: string[]): string[] {
+	return filePaths.filter((filePath, index) => {
+		return filePaths.every((otherPath, otherIndex) => {
+			return otherIndex === index || !filePath.startsWith(otherPath);
+		});
+	});
+}
+
+async function scanFiles(searchPaths: string[]) {
+	searchPaths = filterSubdirectories([...new Set(searchPaths)])
+
+	return await glob(searchPaths.map(searchPath => searchPath + '/**/*.{pas,inc}'));
+}
+
+async function mapPatcher(mapFileName: string, mappings: UnitMappings, outputChannel: vscode.OutputChannel) {
+	if (path.extname(mapFileName) !== '.map') {
+		vscode.window.showErrorMessage(`Invalid map file: ${mapFileName}`);
+		return false;
+	}
+
+	if (!fs.existsSync(mapFileName)) {
+		vscode.window.showErrorMessage(`Map file not found: ${mapFileName}`);
+		return false;
+	}
+
+	if (Object.keys(mappings).length === 0) {
+		vscode.window.showErrorMessage('No source file mappings specified');
+		return false;
+	}
+
+	await fs.promises.copyFile(mapFileName, `${mapFileName}.bak`);
+
+	outputChannel.appendLine(`Reading map file...`)
+	const contents = await fs.promises.readFile(mapFileName, 'utf8');
+
+	outputChannel.appendLine(`Patching map file...`)
+	const patched = contents.replace(/(?<=Line numbers for.*\().*(?=\).*)/gm, (filename: string) => {
+		const filenameLowerCase = filename.toLowerCase();
+
+		if (mappings[filenameLowerCase] === undefined) {
+			outputChannel.appendLine(`No mapping found for ${filename}...`)
+		}
+
+		return mappings[filenameLowerCase] ?? filename;
+	});
+
+	outputChannel.appendLine(`Writing map file...`)
+	await fs.promises.writeFile(mapFileName, patched);
+
+	return true;
 }
 
 async function runDebugger(exePath: string) {
@@ -113,22 +219,22 @@ async function getDebugConfig(exePath: string) {
 	await debugConfigurations.update('configurations', configurations);
 }
 
-function testDelphi() {
-	const msg = `test ${EXTENSION_NAME} command.`;
-	console.log(msg);
-	vscode.window.showInformationMessage(msg);
-}
-
 async function buildDelphi() {
-	await runMSBuildProcess([], 'Build Delphi');
-}
-
-async function runDelphi() {
-	await runMSBuildProcess([], 'Run Delphi');
 	const dprojFilePath = await getDprojFilePath();
 	if (!dprojFilePath) {
 		return;
 	}
+
+	await runMSBuildProcess(dprojFilePath, [], createOutputChannel('Build Delphi'));
+}
+
+async function runDelphi() {
+	const dprojFilePath = await getDprojFilePath();
+	if (!dprojFilePath) {
+		return;
+	}
+
+	await runMSBuildProcess(dprojFilePath, [], createOutputChannel('Run Delphi'));
 
 	const exePath = await getExecutableFilePath(dprojFilePath);
 	fs.promises.access(exePath, fs.constants.X_OK)
@@ -137,22 +243,19 @@ async function runDelphi() {
 }
 
 async function cleanDelphi() {
-	await runMSBuildProcess(['/t:Clean'], 'Clean Delphi');
+	const dprojFilePath = await getDprojFilePath();
+	if (!dprojFilePath) {
+		return;
+	}
+
+	await runMSBuildProcess(dprojFilePath, ['/t:Clean'], createOutputChannel('Clean Delphi'));
 }
 
-async function runMSBuildProcess(extraArgs: readonly string[] = [], processName: string = 'MSBuild process'): Promise<void> {
+async function runMSBuildProcess(dprojPath: string, extraArgs: readonly string[] = [], outputChannel: vscode.OutputChannel): Promise<void> {
 	const rsvarsPath = getConfigString('rsvarsPath');
 	if (!rsvarsPath) {
 		return;
 	}
-
-	const dprojPath = await getDprojFilePath();
-	if (!dprojPath) {
-		return;
-	}
-
-	const outputChannel = vscode.window.createOutputChannel(processName);
-	outputChannel.show();
 
 	const args = ['/c', rsvarsPath, '&&', 'MSBuild', dprojPath, ...extraArgs];
 	const buildProcess = childProcess.spawn('cmd.exe', args);
@@ -164,8 +267,8 @@ async function runMSBuildProcess(extraArgs: readonly string[] = [], processName:
 		outputChannel.appendLine(data.toString());
 	});
 
-	return  new Promise((resolve, reject) => {
-		buildProcess.on('close', (code) =>{
+	return new Promise((resolve, reject) => {
+		buildProcess.on('close', (code) => {
 			outputChannel.appendLine(`Build process exited with code ${code}`);
 			if (code === 0) {
 				resolve();
@@ -203,13 +306,95 @@ async function getExecutableFilePath(dprojFilePath: string): Promise<string> {
 	return '';
 }
 
+async function parseIconPath(dprojFilePath: string): Promise<vscode.Uri | undefined> {
+	const dprojContent = fs.readFileSync(dprojFilePath, 'utf8');
+	const makeUri = async (iconPath: string) => {
+		if (!fs.existsSync(iconPath)) {
+			return undefined;
+		}
+
+		return await convertIcoToUriBuffer(iconPath);
+	}
+
+	const BDS = getConfigString('embarcaderoInstallDir');
+	const defaultIcon = 'delphi_PROJECTICON.ico';
+	const defaultIconPath = path.join(BDS, 'bin', defaultIcon);
+
+	const iconRegex = /<Icon_MainIcon.*>(.*?)<\/Icon_MainIcon>/g;
+	const iconPaths: string[] = [];
+	let match;
+
+	while ((match = iconRegex.exec(dprojContent)) !== null) {
+		const iconPath = match[1].trim();
+		if (iconPath.startsWith('$(')) {
+			continue;
+		}
+		iconPaths.push(iconPath);
+	}
+
+	if (iconPaths.length === 0) {
+		return makeUri(defaultIconPath);
+	}
+
+	if (iconPaths.length === 1) {
+		return makeUri(path.join(path.dirname(dprojFilePath), iconPaths[0]));
+	}
+
+	const remainingIcons = iconPaths.filter((iconPath) => iconPath !== defaultIcon);
+	if (remainingIcons.length === 0) {
+		return makeUri(defaultIconPath);
+	}
+
+	const shortestIcon = remainingIcons.reduce((shortest, iconPath) => {
+		return iconPath.length < shortest.length ? iconPath : shortest;
+	});
+
+	return makeUri(path.join(path.dirname(dprojFilePath), shortestIcon));
+}
+
+async function convertIcoToPngBuffer(icoFilePath: string): Promise<Buffer> {
+	const icoBuffer = await fs.promises.readFile(icoFilePath);
+	const icoData = await ICO.parse(icoBuffer);
+
+	return Buffer.from(icoData[0].buffer);
+}
+
+async function convertIcoToUriBuffer(icoFilePath: string): Promise<vscode.Uri> {
+	const pngBuffer = await convertIcoToPngBuffer(icoFilePath);
+	const base64Data = pngBuffer.toString('base64');
+	const uriBuffer = Buffer.from(base64Data, 'base64');
+
+	return vscode.Uri.parse(`data:image/png;base64,${uriBuffer.toString('base64')}`);
+}
+
 async function getDprojFilePath(): Promise<string | undefined> {
-	const dprojFiles = await vscode.workspace.findFiles('**/*.dproj', '**/node_modules/**', 1);
-	if (dprojFiles.length > 0) {
+	const dprojFiles = await vscode.workspace.findFiles('**/*.dproj', '**/node_modules/**');
+	if (dprojFiles.length === 0) {
+		vscode.window.showErrorMessage('No .dproj file found in the current workspace.');
+		return undefined;
+	}
+
+	if (dprojFiles.length === 1) {
 		return dprojFiles[0].fsPath;
 	}
 
-	vscode.window.showErrorMessage('No .dproj file found in the current workspace.');
+	const options: vscode.QuickPickOptions = {
+		canPickMany: false,
+		placeHolder: 'Multiple .dproj files found. Please select one.'
+	};
+
+	const fileItems: vscode.QuickPickItem[] = await Promise.all(
+		dprojFiles.map(async file => ({
+			label: path.basename(file.fsPath),
+			description: path.dirname(file.fsPath),
+			iconPath: await parseIconPath(file.fsPath),
+		})));
+
+	const selectedFile = await vscode.window.showQuickPick(fileItems, options);
+	if (selectedFile) {
+		return path.join(selectedFile.description!, selectedFile.label);
+	}
+
 	return undefined;
 }
 
