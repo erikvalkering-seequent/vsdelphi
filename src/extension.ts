@@ -5,6 +5,7 @@ import * as xml2js from 'xml2js';
 import * as path from 'path';
 import { glob } from 'glob';
 import ICO from 'icojs';
+import * as vsWinReg from '@vscode/windows-registry';
 
 // The name of the extension as defined in package.json
 const EXTENSION_NAME = 'vsdelphi';
@@ -50,6 +51,24 @@ type DprojPaths = {
 	exe: string,
 };
 
+export function isHKEY(key: string): key is vsWinReg.HKEY {
+  return ["HKEY_CURRENT_USER", "HKEY_LOCAL_MACHINE", "HKEY_CLASSES_ROOT", "HKEY_USERS", "HKEY_CURRENT_CONFIG"].includes(key);
+}
+
+export function getGlobalBrowsingPaths() {
+	const regPath = getConfigString('embarcaderoRegistryPath') + '\\Library\\Win64';
+	const hive = regPath.split('\\')[0];
+	const key = regPath.split('\\').slice(1).join('\\');
+
+	if (!isHKEY(hive)) {
+		vscode.window.showErrorMessage(`Invalid registry hive: ${hive}`);
+		return [];
+	}
+
+	const browsingPath = vsWinReg.GetStringRegKey(hive, key, 'Browsing Path');
+	return browsingPath?.split(';') ?? [];
+}
+
 async function generateUnitMappings(dprojPaths: DprojPaths) {
 	const dprFiles = await parseDprFiles(dprojPaths.dpr);
 
@@ -60,10 +79,7 @@ async function generateUnitMappings(dprojPaths: DprojPaths) {
 			.replaceAll('\\', '/');
 
 	const unitSearchPaths = [
-		// Delphi default directories
-		'$(BDS)\\source\\rtl\\common',
-		'C:\\Program Files (x86)\\madCollection\\madExcept\\Sources',
-
+		...getGlobalBrowsingPaths(),
 		...await parseUnitSearchPaths(dprojPaths.dproj),
 	].map(resolveSearchPath);
 
