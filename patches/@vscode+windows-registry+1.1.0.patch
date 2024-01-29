@@ -1,0 +1,13 @@
+diff --git a/node_modules/@vscode/windows-registry/src/winregistry.cc b/node_modules/@vscode/windows-registry/src/winregistry.cc
+index c5368d6..2d58bb2 100644
+--- a/node_modules/@vscode/windows-registry/src/winregistry.cc
++++ b/node_modules/@vscode/windows-registry/src/winregistry.cc
+@@ -100,7 +100,7 @@ napi_value GetStringRegKey(napi_env env, napi_callback_info info) {
+     return nullptr;
+   }
+ 
+-  char szBuffer[512];
++  char szBuffer[4096];
+   DWORD dwBufferSize = sizeof(szBuffer);
+ 
+   if (ERROR_SUCCESS == RegQueryValueEx(hKey, name.c_str(), 0, NULL,

@@ -68,7 +68,8 @@
         "watch-tests": "tsc -p . -w --outDir out",
         "pretest": "npm run compile-tests && npm run compile && npm run lint",
         "lint": "eslint src --ext ts",
-        "test": "vscode-test"
+        "test": "vscode-test",
+        "postinstall": "patch-package && npm rebuild @vscode/windows-registry"
     },
     "devDependencies": {
         "@types/mocha": "^10.0.6",
@@ -81,6 +82,8 @@
         "@vscode/test-electron": "^2.3.9",
         "eslint": "^8.56.0",
         "node-loader": "^2.0.0",
+        "patch-package": "^8.0.0",
+        "postinstall-postinstall": "^2.1.0",
         "ts-loader": "^9.5.1",
         "typescript": "^5.3.3",
         "webpack": "^5.90.0",
