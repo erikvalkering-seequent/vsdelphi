@@ -42,13 +42,13 @@ function changeExt(p: string, ext: string) {
 	return path.format({ ...path.parse(p), base: '', ext });
 }
 
-type UnitMappings = {[key: string]: string}
+type UnitMappings = {[key: string]: string};
 
 type DprojPaths = {
 	dproj: string,
 	dpr: string,
 	exe: string,
-}
+};
 
 async function generateUnitMappings(dprojPaths: DprojPaths) {
 	const dprFiles = await parseDprFiles(dprojPaths.dpr);
@@ -140,7 +140,7 @@ function filterSubdirectories(filePaths: string[]): string[] {
 }
 
 async function scanFiles(searchPaths: string[]) {
-	searchPaths = filterSubdirectories([...new Set(searchPaths)])
+	searchPaths = filterSubdirectories([...new Set(searchPaths)]);
 
 	return await glob(searchPaths.map(searchPath => searchPath + '/**/*.{pas,inc}'));
 }
@@ -163,21 +163,21 @@ async function mapPatcher(mapFileName: string, mappings: UnitMappings, outputCha
 
 	await fs.promises.copyFile(mapFileName, `${mapFileName}.bak`);
 
-	outputChannel.appendLine(`Reading map file...`)
+	outputChannel.appendLine(`Reading map file...`);
 	const contents = await fs.promises.readFile(mapFileName, 'utf8');
 
-	outputChannel.appendLine(`Patching map file...`)
+	outputChannel.appendLine(`Patching map file...`);
 	const patched = contents.replace(/(?<=Line numbers for.*\().*(?=\).*)/gm, (filename: string) => {
 		const filenameLowerCase = filename.toLowerCase();
 
 		if (mappings[filenameLowerCase] === undefined) {
-			outputChannel.appendLine(`No mapping found for ${filename}...`)
+			outputChannel.appendLine(`No mapping found for ${filename}...`);
 		}
 
 		return mappings[filenameLowerCase] ?? filename;
 	});
 
-	outputChannel.appendLine(`Writing map file...`)
+	outputChannel.appendLine(`Writing map file...`);
 	await fs.promises.writeFile(mapFileName, patched);
 
 	return true;
@@ -348,7 +348,7 @@ async function parseIconPath(dprojFilePath: string): Promise<vscode.Uri | undefi
 		}
 
 		return await convertIcoToUriBuffer(iconPath);
-	}
+	};
 
 	const BDS = getConfigString('embarcaderoInstallDir');
 	const defaultIcon = 'delphi_PROJECTICON.ico';
