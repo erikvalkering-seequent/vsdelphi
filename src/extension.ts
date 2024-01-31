@@ -238,6 +238,8 @@ async function getDebugConfig(exePath: string) {
 	configurations.push(config);
 
 	await debugConfigurations.update('configurations', configurations);
+
+	return config;
 }
 
 async function buildDelphi() {
