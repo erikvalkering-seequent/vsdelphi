@@ -5,6 +5,7 @@ import * as xml2js from 'xml2js';
 import * as path from 'path';
 import { glob } from 'glob';
 import ICO from 'icojs';
+import * as vsWinReg from '@vscode/windows-registry';
 
 // The name of the extension as defined in package.json
 const EXTENSION_NAME = 'vsdelphi';
@@ -42,12 +43,30 @@ function changeExt(p: string, ext: string) {
 	return path.format({ ...path.parse(p), base: '', ext });
 }
 
-type UnitMappings = {[key: string]: string}
+type UnitMappings = {[key: string]: string};
 
 type DprojPaths = {
 	dproj: string,
 	dpr: string,
 	exe: string,
+};
+
+export function isHKEY(key: string): key is vsWinReg.HKEY {
+  return ["HKEY_CURRENT_USER", "HKEY_LOCAL_MACHINE", "HKEY_CLASSES_ROOT", "HKEY_USERS", "HKEY_CURRENT_CONFIG"].includes(key);
+}
+
+export function getGlobalBrowsingPaths() {
+	const regPath = getConfigString('embarcaderoRegistryPath') + '\\Library\\Win64';
+	const hive = regPath.split('\\')[0];
+	const key = regPath.split('\\').slice(1).join('\\');
+
+	if (!isHKEY(hive)) {
+		vscode.window.showErrorMessage(`Invalid registry hive: ${hive}`);
+		return [];
+	}
+
+	const browsingPath = vsWinReg.GetStringRegKey(hive, key, 'Browsing Path');
+	return browsingPath?.split(';') ?? [];
 }
 
 async function generateUnitMappings(dprojPaths: DprojPaths) {
@@ -60,10 +79,7 @@ async function generateUnitMappings(dprojPaths: DprojPaths) {
 			.replaceAll('\\', '/');
 
 	const unitSearchPaths = [
-		// Delphi default directories
-		'$(BDS)\\source\\rtl\\common',
-		'C:\\Program Files (x86)\\madCollection\\madExcept\\Sources',
-
+		...getGlobalBrowsingPaths(),
 		...await parseUnitSearchPaths(dprojPaths.dproj),
 	].map(resolveSearchPath);
 
@@ -140,7 +156,7 @@ function filterSubdirectories(filePaths: string[]): string[] {
 }
 
 async function scanFiles(searchPaths: string[]) {
-	searchPaths = filterSubdirectories([...new Set(searchPaths)])
+	searchPaths = filterSubdirectories([...new Set(searchPaths)]);
 
 	return await glob(searchPaths.map(searchPath => searchPath + '/**/*.{pas,inc}'));
 }
@@ -163,21 +179,21 @@ async function mapPatcher(mapFileName: string, mappings: UnitMappings, outputCha
 
 	await fs.promises.copyFile(mapFileName, `${mapFileName}.bak`);
 
-	outputChannel.appendLine(`Reading map file...`)
+	outputChannel.appendLine(`Reading map file...`);
 	const contents = await fs.promises.readFile(mapFileName, 'utf8');
 
-	outputChannel.appendLine(`Patching map file...`)
+	outputChannel.appendLine(`Patching map file...`);
 	const patched = contents.replace(/(?<=Line numbers for.*\().*(?=\).*)/gm, (filename: string) => {
 		const filenameLowerCase = filename.toLowerCase();
 
 		if (mappings[filenameLowerCase] === undefined) {
-			outputChannel.appendLine(`No mapping found for ${filename}...`)
+			outputChannel.appendLine(`No mapping found for ${filename}...`);
 		}
 
 		return mappings[filenameLowerCase] ?? filename;
 	});
 
-	outputChannel.appendLine(`Writing map file...`)
+	outputChannel.appendLine(`Writing map file...`);
 	await fs.promises.writeFile(mapFileName, patched);
 
 	return true;
@@ -348,7 +364,7 @@ async function parseIconPath(dprojFilePath: string): Promise<vscode.Uri | undefi
 		}
 
 		return await convertIcoToUriBuffer(iconPath);
-	}
+	};
 
 	const BDS = getConfigString('embarcaderoInstallDir');
 	const defaultIcon = 'delphi_PROJECTICON.ico';

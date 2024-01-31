@@ -3,15 +3,15 @@
     "displayName": "Pythia VSDelphi",
     "description": "VSCode IDE support for Delphi",
     "publisher": "pythia",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "engines": {
-        "vscode": "^1.84.0"
+        "vscode": "^1.85.0"
     },
     "categories": [
         "Other"
     ],
     "activationEvents": [],
-    "main": "./out/main.js",
+    "main": "./dist/extension.js",
     "contributes": {
         "commands": [
             {
@@ -43,6 +43,11 @@
                     "type": "string",
                     "default": "C:\\Program Files (x86)\\Embarcadero\\Studio\\22.0",
                     "description": "Path to the Embarcadero installation"
+                },
+                "vsdelphi.embarcaderoRegistryPath": {
+                    "type": "string",
+                    "default": "HKEY_CURRENT_USER\\SOFTWARE\\Embarcadero\\BDS\\22.0",
+                    "description": "Path to the Embarcadero Windows Registry key"
                 }
             }
         },
@@ -60,31 +65,37 @@
         ]
     },
     "scripts": {
-        "vscode:prepublish": "npm run esbuild-base -- --minify",
-        "esbuild-base": "esbuild ./src/extension.ts --bundle --outfile=out/main.js --external:vscode --format=cjs --platform=node",
-        "esbuild": "npm run esbuild-base -- --sourcemap",
-        "esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
-        "test-compile": "tsc -p ./",
-        "compile": "tsc -p ./",
-        "watch": "tsc -watch -p ./",
-        "pretest": "npm run compile && npm run lint",
+        "vscode:prepublish": "npm run package",
+        "compile": "webpack",
+        "watch": "webpack --watch",
+        "package": "webpack --mode production --devtool hidden-source-map",
+        "compile-tests": "tsc -p . --outDir out",
+        "watch-tests": "tsc -p . -w --outDir out",
+        "pretest": "npm run compile-tests && npm run compile && npm run lint",
         "lint": "eslint src --ext ts",
-        "test": "node ./out/test/runTest.js"
+        "test": "vscode-test",
+        "postinstall": "patch-package && npm rebuild @vscode/windows-registry"
     },
     "devDependencies": {
-        "@types/mocha": "^10.0.3",
+        "@types/mocha": "^10.0.6",
         "@types/node": "18.x",
-        "@types/vscode": "^1.84.0",
+        "@types/vscode": "^1.85.0",
         "@types/xml2js": "^0.4.14",
-        "@typescript-eslint/eslint-plugin": "^6.9.0",
-        "@typescript-eslint/parser": "^6.9.0",
-        "@vscode/test-electron": "^2.3.6",
-        "esbuild": "^0.19.11",
-        "eslint": "^8.52.0",
-        "mocha": "^10.2.0",
-        "typescript": "^5.2.2"
+        "@typescript-eslint/eslint-plugin": "^6.19.1",
+        "@typescript-eslint/parser": "^6.19.1",
+        "@vscode/test-cli": "^0.0.4",
+        "@vscode/test-electron": "^2.3.9",
+        "eslint": "^8.56.0",
+        "node-loader": "^2.0.0",
+        "patch-package": "^8.0.0",
+        "postinstall-postinstall": "^2.1.0",
+        "ts-loader": "^9.5.1",
+        "typescript": "^5.3.3",
+        "webpack": "^5.90.0",
+        "webpack-cli": "^5.1.4"
     },
     "dependencies": {
+        "@vscode/windows-registry": "^1.1.0",
         "glob": "^10.3.10",
         "icojs": "^0.17.1",
         "xml2js": "^0.6.2"
