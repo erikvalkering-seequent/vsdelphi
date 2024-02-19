@@ -438,6 +438,8 @@ async function getDprojFilePath(): Promise<string | undefined> {
 	// Sort the dprojFiles array in a deterministic order
 	dprojFiles.sort((a, b) => a.fsPath.localeCompare(b.fsPath));
 
+	// TODO: in case a dproj or dpr is the current buffer, select it as the default
+	// TODO: remember the previous selection and make it the default
 	const options: vscode.QuickPickOptions = {
 		canPickMany: false,
 		placeHolder: 'Multiple .dproj files found. Please select one.'
