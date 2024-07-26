@@ -19,6 +19,7 @@ export function activate(context: vscode.ExtensionContext) {
 	registerCmd(context, 'run', runDelphi);
 	registerCmd(context, 'clean', cleanDelphi);
 	registerCmd(context, 'debug', debugDelphi);
+  	registerCmd(context, "map2pdb", map2pdb);
 
 	checkExtension('embarcaderotechnologies.delphilsp',
 		'DelphiLSP provides language support and is recommended.',
@@ -122,6 +123,41 @@ async function debugDelphi() {
 	}
 
 	await runDebugger(dprojPaths.exe);
+}
+
+async function map2pdb() {
+  if (!fs.existsSync(MAP2PDB_PATH)) {
+    vscode.window.showErrorMessage(
+      `Unable to find map2pdb.exe at ${MAP2PDB_PATH}.`
+    );
+    return;
+  }
+
+  const dprojFilePath = await getDprojFilePath();
+  if (!dprojFilePath) {
+    return;
+  }
+
+  const outputChannel = createOutputChannel("map2pdb");
+
+  const dprojPaths = await parseDprojPaths(dprojFilePath);
+  if (!dprojPaths) {
+    return;
+  }
+
+  const mapFilePath = changeExt(dprojPaths.exe, ".map");
+  const mappings = await generateUnitMappings(dprojPaths);
+  if (!(await mapPatcher(mapFilePath, mappings, outputChannel))) {
+    return;
+  }
+
+  const convertProcess = childProcess.spawnSync(MAP2PDB_PATH, [
+    "-bind",
+    mapFilePath,
+  ]);
+  if (convertProcess.error) {
+    vscode.window.showErrorMessage(convertProcess.error.message);
+  }
 }
 
 async function parseDprFiles(dprFilePath: string) {

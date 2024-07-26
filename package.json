@@ -3,7 +3,7 @@
     "displayName": "Pythia VSDelphi",
     "description": "VSCode IDE support for Delphi",
     "publisher": "pythia",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "engines": {
         "vscode": "^1.85.0"
     },
@@ -29,6 +29,10 @@
             {
                 "command": "vsdelphi.debug",
                 "title": "VSDelphi: Debug"
+            },
+            {
+                "command": "vsdelphi.map2pdb",
+                "title": "VSDelphi: map2pdb"
             }
         ],
         "configuration": {
