@@ -493,40 +493,70 @@ async function convertIcoToUriBuffer(icoFilePath: string): Promise<vscode.Uri> {
   return vscode.Uri.parse(`data:image/png;base64,${uriBuffer.toString('base64')}`);
 }
 
+async function selectFile({
+  placeHolder,
+  files,
+}: {
+  placeHolder: string;
+  files: vscode.Uri[];
+}): Promise<vscode.QuickPickItem | undefined> {
+  const options: vscode.QuickPickOptions = {
+    canPickMany: false,
+    placeHolder,
+  };
+
+  const fileItems: vscode.QuickPickItem[] = await Promise.all(
+    files.map(async (file) => ({
+      label: path.basename(file.fsPath),
+      description: path.dirname(file.fsPath),
+      iconPath: await parseIconPath(file.fsPath),
+    }))
+  );
+
+  return await vscode.window.showQuickPick(fileItems, options);
+}
+
 async function getDprojFilePath(): Promise<string | undefined> {
-	const dprojFiles = await vscode.workspace.findFiles('**/*.dproj', '**/node_modules/**');
-	if (dprojFiles.length === 0) {
-		vscode.window.showErrorMessage('No .dproj file found in the current workspace.');
-		return undefined;
-	}
+  const predefinedDprojFiles = ['d:/bb/plaxis/src/Plaxis/plxlib/Misc/UnitTests/TestMisc.dproj'].map(
+    vscode.Uri.file
+  );
 
-	if (dprojFiles.length === 1) {
-		return dprojFiles[0].fsPath;
-	}
+  const predefinedSelection = selectFile({
+    placeHolder: 'Select a predefined .dproj file (press Escape for selecting from all files)',
+    files: predefinedDprojFiles,
+  });
 
-	// Sort the dprojFiles array in a deterministic order
-	dprojFiles.sort((a, b) => a.fsPath.localeCompare(b.fsPath));
+  const dprojFilesPromise = vscode.workspace.findFiles('**/*.dproj', '**/node_modules/**');
 
-	// TODO: in case a dproj or dpr is the current buffer, select it as the default
-	// TODO: remember the previous selection and make it the default
-	const options: vscode.QuickPickOptions = {
-		canPickMany: false,
-		placeHolder: 'Multiple .dproj files found. Please select one.'
-	};
+  const selectedPredefinedFile = await predefinedSelection;
+  if (selectedPredefinedFile) {
+    return path.join(selectedPredefinedFile.description!, selectedPredefinedFile.label);
+  }
 
-	const fileItems: vscode.QuickPickItem[] = await Promise.all(
-		dprojFiles.map(async file => ({
-			label: path.basename(file.fsPath),
-			description: path.dirname(file.fsPath),
-			iconPath: await parseIconPath(file.fsPath),
-		})));
+  const dprojFiles = await dprojFilesPromise;
+  if (dprojFiles.length === 0) {
+    vscode.window.showErrorMessage('No .dproj file found in the current workspace.');
+    return undefined;
+  }
 
-	const selectedFile = await vscode.window.showQuickPick(fileItems, options);
-	if (selectedFile) {
-		return path.join(selectedFile.description!, selectedFile.label);
-	}
+  if (dprojFiles.length === 1) {
+    return dprojFiles[0].fsPath;
+  }
 
-	return undefined;
+  // Sort the dprojFiles array in a deterministic order
+  dprojFiles.sort((a, b) => a.fsPath.localeCompare(b.fsPath));
+
+  // TODO: in case a dproj or dpr is the current buffer, select it as the default
+  // TODO: remember the previous selection and make it the default
+  const selectedFile = await selectFile({
+    placeHolder: 'Multiple .dproj files found. Please select one.',
+    files: dprojFiles,
+  });
+  if (selectedFile) {
+    return path.join(selectedFile.description!, selectedFile.label);
+  }
+
+  return undefined;
 }
 
 function getConfigString(propertyName: string): string {
