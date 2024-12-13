@@ -74,7 +74,7 @@ export function isHKEY(key: string): key is vsWinReg.HKEY {
 
 export function getGlobalBrowsingPaths() {
   // TODO: don't hardcode Win64
-  const regPath = getConfigString('embarcaderoRegistryPath') + '\\Library\\Win64';
+  const regPath = (getConfig('embarcaderoRegistryPath') ?? '') + '\\Library\\Win64';
   const hive = regPath.split('\\')[0];
   const key = regPath.split('\\').slice(1).join('\\');
 
@@ -94,7 +94,7 @@ async function generateUnitMappings(dprojPaths: DprojPaths) {
   const resolveSearchPath = (searchPath: string) =>
     path
       .join(dprojFileDir, searchPath)
-      .replace(/.*\$\(BDS\)/, getConfigString('embarcaderoInstallDir'))
+      .replace(/.*\$\(BDS\)/, getConfig('embarcaderoInstallDir') ?? '')
       .replaceAll('\\', '/');
 
   const unitSearchPaths = [
@@ -355,7 +355,7 @@ async function runMSBuildProcess(
   extraArgs: readonly string[] = [],
   outputChannel: vscode.OutputChannel
 ): Promise<void> {
-  const rsvarsPath = getConfigString('rsvarsPath');
+  const rsvarsPath = getConfig('rsvarsPath');
   if (!rsvarsPath) {
     return;
   }
@@ -442,7 +442,7 @@ async function parseIconPath(dprojFilePath: string): Promise<vscode.Uri | undefi
     return await convertIcoToUriBuffer(iconPath);
   };
 
-  const BDS = getConfigString('embarcaderoInstallDir');
+  const BDS = getConfig('embarcaderoInstallDir') ?? '';
   const defaultIcon = 'delphi_PROJECTICON.ico';
   const defaultIconPath = path.join(BDS, 'bin', defaultIcon);
 
@@ -517,20 +517,24 @@ async function selectFile({
 }
 
 async function getDprojFilePath(): Promise<string | undefined> {
-  const predefinedDprojFiles = ['d:/bb/plaxis/src/Plaxis/plxlib/Misc/UnitTests/TestMisc.dproj'].map(
-    vscode.Uri.file
-  );
-
-  const predefinedSelection = selectFile({
-    placeHolder: 'Select a predefined .dproj file (press Escape for selecting from all files)',
-    files: predefinedDprojFiles,
-  });
-
+  const mruDprojFiles = getConfig<string[]>('mruDprojFiles', false) ?? [];
   const dprojFilesPromise = vscode.workspace.findFiles('**/*.dproj', '**/node_modules/**');
 
-  const selectedPredefinedFile = await predefinedSelection;
-  if (selectedPredefinedFile) {
-    return path.join(selectedPredefinedFile.description!, selectedPredefinedFile.label);
+  if (mruDprojFiles.length !== 0) {
+    const mruSelection = selectFile({
+      placeHolder: 'Select a recently used .dproj file (press Escape for selecting from all files)',
+      files: mruDprojFiles.map(vscode.Uri.file),
+    });
+
+    const selectedPredefinedFile = await mruSelection;
+    if (selectedPredefinedFile) {
+      const selectedPath = path.join(
+        selectedPredefinedFile.description!,
+        selectedPredefinedFile.label
+      );
+      setConfig<string[]>('mruDprojFiles', [...new Set([selectedPath, ...mruDprojFiles])]);
+      return selectedPath;
+    }
   }
 
   const dprojFiles = await dprojFilesPromise;
@@ -540,7 +544,9 @@ async function getDprojFilePath(): Promise<string | undefined> {
   }
 
   if (dprojFiles.length === 1) {
-    return dprojFiles[0].fsPath;
+    const selectedPath = dprojFiles[0].fsPath;
+    await setConfig<string[]>('mruDprojFiles', [...new Set([selectedPath, ...mruDprojFiles])]);
+    return selectedPath;
   }
 
   // Sort the dprojFiles array in a deterministic order
@@ -553,28 +559,43 @@ async function getDprojFilePath(): Promise<string | undefined> {
     files: dprojFiles,
   });
   if (selectedFile) {
-    return path.join(selectedFile.description!, selectedFile.label);
+    const selectedPath = path.join(selectedFile.description!, selectedFile.label);
+    setConfig<string[]>('mruDprojFiles', [...new Set([selectedPath, ...mruDprojFiles])]);
+    return selectedPath;
   }
 
   return undefined;
 }
 
-function getConfigString(propertyName: string): string {
+function getConfig<T = string>(propertyName: string, required = true): T | undefined {
   const config = vscode.workspace.getConfiguration(EXTENSION_NAME);
   if (!config) {
     vscode.window.showErrorMessage(`Unable to obtain ${EXTENSION_NAME} configuration.`);
-    return '';
+    return undefined;
   }
 
-  const prop = config.get(propertyName) as string;
+  const prop = config.get(propertyName) as T;
   if (!prop) {
-    vscode.window.showErrorMessage(
-      `Unable to obtain ${propertyName} from config. Make sure it is set. (Ctrl + ,)`
-    );
-    return '';
+    if (required) {
+      vscode.window.showErrorMessage(
+        `Unable to obtain ${propertyName} from config. Make sure it is set. (Ctrl + ,)`
+      );
+    }
+
+    return undefined;
   }
 
   return prop;
+}
+
+async function setConfig<T = string>(propertyName: string, value: T) {
+  const config = vscode.workspace.getConfiguration(EXTENSION_NAME);
+  if (!config) {
+    vscode.window.showErrorMessage(`Unable to obtain ${EXTENSION_NAME} configuration.`);
+    return;
+  }
+
+  await config.update(propertyName, value);
 }
 
 function checkExtension(extensionID: string, description: string, button: string) {

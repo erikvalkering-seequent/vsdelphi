@@ -3,7 +3,7 @@
   "displayName": "Pythia VSDelphi",
   "description": "VSCode IDE support for Delphi",
   "publisher": "pythia",
-    "version": "0.0.3",
+  "version": "0.0.4",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -52,6 +52,13 @@
           "type": "string",
           "default": "HKEY_CURRENT_USER\\SOFTWARE\\Embarcadero\\BDS\\22.0",
           "description": "Path to the Embarcadero Windows Registry key"
+        },
+        "vsdelphi.mruDprojFiles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of most recently used Dproj files"
         }
       }
     },
