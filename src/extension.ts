@@ -493,78 +493,73 @@ async function convertIcoToUriBuffer(icoFilePath: string): Promise<vscode.Uri> {
   return vscode.Uri.parse(`data:image/png;base64,${uriBuffer.toString('base64')}`);
 }
 
-async function selectFile({
-  placeHolder,
-  files,
-}: {
-  placeHolder: string;
-  files: vscode.Uri[];
-}): Promise<vscode.QuickPickItem | undefined> {
-  const options: vscode.QuickPickOptions = {
-    canPickMany: false,
-    placeHolder,
-  };
-
-  const fileItems: vscode.QuickPickItem[] = await Promise.all(
+async function createQuickPickItems(files: vscode.Uri[]): Promise<vscode.QuickPickItem[]> {
+  return await Promise.all(
     files.map(async (file) => ({
       label: path.basename(file.fsPath),
       description: path.dirname(file.fsPath),
       iconPath: await parseIconPath(file.fsPath),
     }))
   );
-
-  return await vscode.window.showQuickPick(fileItems, options);
 }
 
 async function getDprojFilePath(): Promise<string | undefined> {
-  const mruDprojFiles = getConfig<string[]>('mruDprojFiles', false) ?? [];
-  const dprojFilesPromise = vscode.workspace.findFiles('**/*.dproj', '**/node_modules/**');
+  const quickPick = vscode.window.createQuickPick();
+  quickPick.placeholder = 'Scanning for .dproj files...';
+  quickPick.enabled = false;
+  quickPick.busy = true;
+  quickPick.show();
 
-  if (mruDprojFiles.length !== 0) {
-    const mruSelection = selectFile({
-      placeHolder: 'Select a recently used .dproj file (press Escape for selecting from all files)',
-      files: mruDprojFiles.map(vscode.Uri.file),
+  return new Promise(async (resolve) => {
+    quickPick.onDidHide(() => {
+      quickPick.dispose();
+      resolve(undefined);
     });
 
-    const selectedPredefinedFile = await mruSelection;
-    if (selectedPredefinedFile) {
-      const selectedPath = path.join(
-        selectedPredefinedFile.description!,
-        selectedPredefinedFile.label
-      );
-      setConfig<string[]>('mruDprojFiles', [...new Set([selectedPath, ...mruDprojFiles])]);
-      return selectedPath;
+    const mruDprojFiles = getConfig<string[]>('mruDprojFiles', false) ?? [];
+    quickPick.items = [
+      { label: 'Recent Files', kind: vscode.QuickPickItemKind.Separator },
+      ...(await createQuickPickItems(mruDprojFiles.map(vscode.Uri.file))),
+    ];
+
+    if (mruDprojFiles.length !== 0) {
+      quickPick.placeholder = 'Select a .dproj file from the list below.';
+      quickPick.enabled = true;
     }
-  }
 
-  const dprojFiles = await dprojFilesPromise;
-  if (dprojFiles.length === 0) {
-    vscode.window.showErrorMessage('No .dproj file found in the current workspace.');
-    return undefined;
-  }
+    quickPick.onDidChangeSelection((selection) => {
+      const selectedFile = selection[0];
+      if (selectedFile) {
+        const selectedPath = path.join(selectedFile.description!, selectedFile.label);
+        setConfig<string[]>('mruDprojFiles', [...new Set([selectedPath, ...mruDprojFiles])]);
+        quickPick.hide();
+        resolve(selectedPath);
+      }
 
-  if (dprojFiles.length === 1) {
-    const selectedPath = dprojFiles[0].fsPath;
-    await setConfig<string[]>('mruDprojFiles', [...new Set([selectedPath, ...mruDprojFiles])]);
-    return selectedPath;
-  }
+      resolve(undefined);
+    });
 
-  // Sort the dprojFiles array in a deterministic order
-  dprojFiles.sort((a, b) => a.fsPath.localeCompare(b.fsPath));
+    vscode.workspace.findFiles('**/*.dproj', '**/node_modules/**').then(async (dprojFiles) => {
+      // Sort the dprojFiles array in a deterministic order
+      dprojFiles.sort((a, b) => a.fsPath.localeCompare(b.fsPath));
+      quickPick.items = [
+        ...quickPick.items,
+        { label: 'All Files', kind: vscode.QuickPickItemKind.Separator },
+        ...(await createQuickPickItems(dprojFiles)),
+      ];
+
+      if (dprojFiles.length === 0) {
+        quickPick.placeholder = 'No .dproj file found in the current workspace.';
+      } else {
+        quickPick.placeholder = 'Select a .dproj file from the list below.';
+        quickPick.enabled = true;
+      }
+
+      quickPick.busy = false;
+    });
+  });
 
   // TODO: in case a dproj or dpr is the current buffer, select it as the default
-  // TODO: remember the previous selection and make it the default
-  const selectedFile = await selectFile({
-    placeHolder: 'Multiple .dproj files found. Please select one.',
-    files: dprojFiles,
-  });
-  if (selectedFile) {
-    const selectedPath = path.join(selectedFile.description!, selectedFile.label);
-    setConfig<string[]>('mruDprojFiles', [...new Set([selectedPath, ...mruDprojFiles])]);
-    return selectedPath;
-  }
-
-  return undefined;
 }
 
 function getConfig<T = string>(propertyName: string, required = true): T | undefined {
@@ -575,14 +570,10 @@ function getConfig<T = string>(propertyName: string, required = true): T | undef
   }
 
   const prop = config.get(propertyName) as T;
-  if (!prop) {
-    if (required) {
-      vscode.window.showErrorMessage(
-        `Unable to obtain ${propertyName} from config. Make sure it is set. (Ctrl + ,)`
-      );
-    }
-
-    return undefined;
+  if (!prop && required) {
+    vscode.window.showErrorMessage(
+      `Unable to obtain ${propertyName} from config. Make sure it is set. (Ctrl + ,)`
+    );
   }
 
   return prop;
