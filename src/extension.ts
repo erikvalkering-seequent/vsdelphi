@@ -166,10 +166,13 @@ async function map2pdb() {
     return;
   }
 
+  outputChannel.appendLine(`Converting .map to .pdb...`);
   const convertProcess = childProcess.spawnSync(MAP2PDB_PATH, ['-bind', mapFilePath]);
   if (convertProcess.error) {
     vscode.window.showErrorMessage(convertProcess.error.message);
   }
+
+  outputChannel.appendLine(`Done!`);
 }
 
 async function parseDprFiles(dprFilePath: string) {
@@ -313,7 +316,10 @@ async function buildDelphi() {
     return;
   }
 
-	await runMSBuildProcess(dprojFilePath, [], createOutputChannel('Build Delphi'));
+  const outputChannel = createOutputChannel('Build Delphi');
+  await runMSBuildProcess(dprojFilePath, [], outputChannel);
+
+  outputChannel.appendLine(`Writing map file...`);
 }
 
 async function runDelphi() {
